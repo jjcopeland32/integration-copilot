@@ -1,0 +1,192 @@
+{
+  "name": "PAYMENTS_BASELINE_v1",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "auth_200",
+      "name": "Auth works",
+      "type": "positive",
+      "request": {
+        "method": "GET",
+        "url": "/auth/check"
+      },
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "charge_create",
+      "name": "Create charge 200",
+      "type": "positive",
+      "request": {
+        "method": "POST",
+        "url": "/charges",
+        "headers": {
+          "Idempotency-Key": "{{uuid}}"
+        },
+        "body": {
+          "amount": 1099,
+          "currency": "USD",
+          "source": "tok_visa"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "webhooks": [
+          "payment_succeeded"
+        ]
+      }
+    },
+    {
+      "id": "idempotency",
+      "name": "Idempotency enforced",
+      "type": "negative",
+      "request": {
+        "method": "POST",
+        "repeat": 2,
+        "url": "/charges",
+        "headers": {
+          "Idempotency-Key": "same-key"
+        },
+        "body": {
+          "amount": 1099,
+          "currency": "USD",
+          "source": "tok_visa"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "uniqueness": "single_charge"
+      }
+    },
+    {
+      "id": "refund_full",
+      "name": "Refund full amount",
+      "type": "positive",
+      "request": {
+        "method": "POST",
+        "url": "/refunds",
+        "body": {
+          "chargeId": "{{from:charge_create}}",
+          "amount": "FULL"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "webhooks": [
+          "refund_processed"
+        ]
+      }
+    },
+    {
+      "id": "refund_partial",
+      "name": "Refund partial amount",
+      "type": "positive",
+      "request": {
+        "method": "POST",
+        "url": "/refunds",
+        "body": {
+          "chargeId": "{{from:charge_create}}",
+          "amount": 500
+        }
+      },
+      "expect": {
+        "status": 200,
+        "webhooks": [
+          "refund_processed"
+        ],
+        "remaining": 599
+      }
+    },
+    {
+      "id": "invalid_currency",
+      "name": "Invalid currency 400",
+      "type": "negative",
+      "request": {
+        "method": "POST",
+        "url": "/charges",
+        "headers": {
+          "Idempotency-Key": "{{uuid}}"
+        },
+        "body": {
+          "amount": 1000,
+          "currency": "XYZ",
+          "source": "tok_visa"
+        }
+      },
+      "expect": {
+        "status": 400,
+        "errorSchema": "#/components/schemas/Error"
+      }
+    },
+    {
+      "id": "missing_idempotency",
+      "name": "Missing Idempotency-Key",
+      "type": "negative",
+      "request": {
+        "method": "POST",
+        "url": "/charges",
+        "body": {
+          "amount": 1000,
+          "currency": "USD",
+          "source": "tok_visa"
+        }
+      },
+      "expect": {
+        "status": 400,
+        "hint": "Idempotency-Key required"
+      }
+    },
+    {
+      "id": "webhook_retry",
+      "name": "Webhook retries honored",
+      "type": "resilience",
+      "webhook": {
+        "name": "payment_succeeded",
+        "firstResponse": 500,
+        "secondResponse": 200
+      },
+      "expect": {
+        "retries": ">=1",
+        "idempotent": true
+      }
+    },
+    {
+      "id": "rate_limit",
+      "name": "429 backoff respected",
+      "type": "resilience",
+      "request": {
+        "method": "POST",
+        "url": "/charges",
+        "headers": {
+          "Idempotency-Key": "{{uuid}}"
+        },
+        "body": {
+          "amount": 1099,
+          "currency": "USD",
+          "source": "tok_visa"
+        },
+        "simulate": {
+          "rateLimit": true
+        }
+      },
+      "expect": {
+        "clientBackoff": true
+      }
+    },
+    {
+      "id": "dispute_event",
+      "name": "Dispute webhook captured",
+      "type": "event",
+      "simulate": {
+        "dispute": true
+      },
+      "expect": {
+        "webhooks": [
+          "dispute_created"
+        ],
+        "evidenceStub": true
+      }
+    }
+  ]
+}

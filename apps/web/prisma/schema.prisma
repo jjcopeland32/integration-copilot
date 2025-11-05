@@ -1,0 +1,201 @@
+// docs/prisma.schema.example
+// Run: `pnpm prisma migrate dev` after adapting to your environment.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+  projects    Project[]
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String?
+  passwordHash String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+}
+
+model Membership {
+  id        String        @id @default(cuid())
+  user      User          @relation(fields: [userId], references: [id])
+  userId    String
+  org       Organization  @relation(fields: [orgId], references: [id])
+  orgId     String
+  role      Role
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([userId, orgId])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  VENDOR
+  PARTNER
+  VIEWER
+}
+
+model Project {
+  id          String     @id @default(cuid())
+  org         Organization @relation(fields: [orgId], references: [id])
+  orgId       String
+  name        String
+  status      ProjectStatus @default(DRAFT)
+  vendorConfig Json?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  specs       Spec[]
+  blueprints  Blueprint[]
+  mocks       MockInstance[]
+  suites      TestSuite[]
+  traces      Trace[]
+  planItems   PlanItem[]
+  reports     Report[]
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model Spec {
+  id         String    @id @default(cuid())
+  project    Project   @relation(fields: [projectId], references: [id])
+  projectId  String
+  kind       SpecKind
+  version    String
+  rawUrl     String?
+  raw        Json?
+  normalized Json?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  blueprints Blueprint[]
+}
+
+enum SpecKind {
+  OPENAPI
+  ASYNCAPI
+  JSON_SCHEMA
+}
+
+model Blueprint {
+  id          String    @id @default(cuid())
+  project     Project   @relation(fields: [projectId], references: [id])
+  projectId   String
+  spec        Spec      @relation(fields: [specId], references: [id])
+  specId      String
+  version     String
+  customerScope Json
+  markdownUrl String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model MockInstance {
+  id         String   @id @default(cuid())
+  project    Project  @relation(fields: [projectId], references: [id])
+  projectId  String
+  baseUrl    String
+  config     Json?
+  status     MockStatus @default(RUNNING)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+enum MockStatus {
+  RUNNING
+  STOPPED
+}
+
+model TestSuite {
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  name      String
+  version   String
+  cases     Json     // array of test case definitions
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  runs      TestRun[]
+}
+
+model TestRun {
+  id        String   @id @default(cuid())
+  suite     TestSuite @relation(fields: [suiteId], references: [id])
+  suiteId   String
+  actor     Actor
+  env       String?
+  results   Json
+  createdAt DateTime @default(now())
+}
+
+enum Actor {
+  VENDOR
+  PARTNER
+}
+
+model Trace {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  requestMeta Json
+  responseMeta Json
+  verdict     String
+  redaction   Json?
+  createdAt   DateTime @default(now())
+}
+
+model PlanItem {
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  phase     String
+  title     String
+  ownerId   String?
+  dueAt     DateTime?
+  status    PlanStatus @default(TODO)
+  evidence  Json?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+enum PlanStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  BLOCKED
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  kind      ReportKind
+  url       String?
+  meta      Json?
+  signedAt  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ReportKind {
+  READINESS
+  MIGRATION
+  AUDIT
+}

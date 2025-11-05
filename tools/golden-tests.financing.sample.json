@@ -1,0 +1,168 @@
+{
+  "name": "FINANCING_BASELINE_v1",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "prequal",
+      "name": "Prequal soft-pull",
+      "type": "positive",
+      "request": {
+        "method": "POST",
+        "url": "/financing/prequal",
+        "body": {
+          "email": "test@shop.com",
+          "amount": 150000
+        }
+      },
+      "expect": {
+        "status": 200,
+        "fields": [
+          "approvedRange",
+          "expiresAt"
+        ]
+      }
+    },
+    {
+      "id": "apply",
+      "name": "Apply \u2192 Approved",
+      "type": "positive",
+      "request": {
+        "method": "POST",
+        "url": "/financing/apply",
+        "body": {
+          "customer": {
+            "name": "Jane",
+            "ssn": "***"
+          },
+          "amount": 150000
+        }
+      },
+      "expect": {
+        "status": 200,
+        "decision": "APPROVED",
+        "webhooks": [
+          "decisioned"
+        ]
+      }
+    },
+    {
+      "id": "plan_code",
+      "name": "Plan code persists to capture",
+      "type": "positive",
+      "request": {
+        "method": "POST",
+        "url": "/charges",
+        "headers": {
+          "Plan-Code": "PROMO_0APR_6M",
+          "Idempotency-Key": "{{uuid}}"
+        },
+        "body": {
+          "amount": 150000,
+          "currency": "USD"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "planCode": "PROMO_0APR_6M"
+      }
+    },
+    {
+      "id": "partial_return",
+      "name": "Partial return maps to plan",
+      "type": "positive",
+      "request": {
+        "method": "POST",
+        "url": "/returns",
+        "body": {
+          "orderId": "{{from:plan_code}}",
+          "amount": 50000
+        }
+      },
+      "expect": {
+        "status": 200,
+        "webhooks": [
+          "return_posted"
+        ],
+        "planIntegrity": true
+      }
+    },
+    {
+      "id": "pending_flow",
+      "name": "Pending \u2192 Approved webhooks",
+      "type": "event",
+      "simulate": {
+        "decision": "PENDING_THEN_APPROVED"
+      },
+      "expect": {
+        "webhooks": [
+          "decisioned_pending",
+          "decisioned_approved"
+        ],
+        "stateTransitions": true
+      }
+    },
+    {
+      "id": "decline_compliance",
+      "name": "Decline shows adverse action",
+      "type": "negative",
+      "simulate": {
+        "decision": "DECLINED"
+      },
+      "expect": {
+        "uiTextIncludes": [
+          "adverse action"
+        ],
+        "logEvidence": true
+      }
+    },
+    {
+      "id": "duplicate_app",
+      "name": "Duplicate application guarded",
+      "type": "negative",
+      "request": {
+        "method": "POST",
+        "url": "/financing/apply",
+        "body": {
+          "customer": {
+            "name": "Jane"
+          },
+          "amount": 150000
+        }
+      },
+      "expect": {
+        "status": 409
+      }
+    },
+    {
+      "id": "webhook_sig",
+      "name": "Webhook signatures verified",
+      "type": "security",
+      "webhook": {
+        "name": "decisioned",
+        "tamperSignature": true
+      },
+      "expect": {
+        "rejected": true
+      }
+    },
+    {
+      "id": "timeout_retry",
+      "name": "Timeout retry policy",
+      "type": "resilience",
+      "simulate": {
+        "timeout": true
+      },
+      "expect": {
+        "clientRetryPolicy": true
+      }
+    },
+    {
+      "id": "pos_parity",
+      "name": "POS parity (optional)",
+      "type": "optional",
+      "expect": {
+        "docEvidence": "pos_flow_equivalence"
+      }
+    }
+  ]
+}
