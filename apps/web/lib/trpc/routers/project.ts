@@ -1,82 +1,95 @@
-import { router, protectedProcedure } from '../server';
+import { router, publicProcedure } from '../server';
 import { z } from 'zod';
-import { createOrchestrator } from '@integration-copilot/orchestrator';
+import { projectStore, specStore, mockStore, testStore } from '../../demo-store';
 
 export const projectRouter = router({
-  create: protectedProcedure
-    .input(
-      z.object({
-        orgId: z.string(),
-        name: z.string(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const orchestrator = createOrchestrator(ctx.prisma);
-      return orchestrator.createProject({
-        ...input,
-        userId: ctx.userId!,
-      });
+  // List all projects
+  list: publicProcedure
+    .input(z.object({ orgId: z.string().optional() }).optional())
+    .query(() => {
+      return projectStore.getAll();
     }),
 
-  list: protectedProcedure
-    .input(
-      z.object({
-        orgId: z.string(),
-      })
-    )
-    .query(async ({ input, ctx }) => {
-      return ctx.prisma.project.findMany({
-        where: { orgId: input.orgId },
-        orderBy: { createdAt: 'desc' },
-        include: {
-          specs: { take: 1, orderBy: { createdAt: 'desc' } },
-          _count: {
-            select: {
-              specs: true,
-              suites: true,
-              traces: true,
-            },
-          },
-        },
-      });
-    }),
-
-  get: protectedProcedure
+  // Get project by ID
+  get: publicProcedure
     .input(z.object({ id: z.string() }))
-    .query(async ({ input, ctx }) => {
-      return ctx.prisma.project.findUnique({
-        where: { id: input.id },
-        include: {
-          specs: { orderBy: { createdAt: 'desc' } },
-          suites: { orderBy: { createdAt: 'desc' } },
-          mocks: { orderBy: { createdAt: 'desc' } },
-          planItems: { orderBy: { createdAt: 'asc' } },
-          reports: { orderBy: { createdAt: 'desc' } },
+    .query(({ input }) => {
+      const project = projectStore.getById(input.id);
+      if (!project) return null;
+
+      // Enrich with related data
+      return {
+        ...project,
+        specs: specStore.getByProjectId(input.id),
+        mocks: mockStore.getByProjectId(input.id),
+        suites: testStore.getByProjectId(input.id),
+        tests: testStore.getByProjectId(input.id),
+        planItems: [],
+        reports: [],
+        _count: {
+          specs: specStore.getByProjectId(input.id).length,
+          suites: testStore.getByProjectId(input.id).length,
+          traces: 0,
         },
+      };
+    }),
+
+  // Create project
+  create: publicProcedure
+    .input(z.object({
+      name: z.string(),
+      orgId: z.string().optional(),
+    }))
+    .mutation(({ input }) => {
+      return projectStore.create({
+        name: input.name,
+        status: 'DRAFT',
+        specs: [],
+        mocks: [],
+        tests: [],
       });
     }),
 
-  update: protectedProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        name: z.string().optional(),
-        status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']).optional(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const { id, ...data } = input;
-      return ctx.prisma.project.update({
-        where: { id },
-        data,
-      });
+  // Update project
+  update: publicProcedure
+    .input(z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']).optional(),
+    }))
+    .mutation(({ input }) => {
+      const { id, ...updates } = input;
+      return projectStore.update(id, updates);
     }),
 
-  delete: protectedProcedure
+  // Delete project
+  delete: publicProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(async ({ input, ctx }) => {
-      return ctx.prisma.project.delete({
-        where: { id: input.id },
-      });
+    .mutation(({ input }) => {
+      // In demo mode, just return success
+      return { success: true };
+    }),
+
+  // Get project stats
+  stats: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(({ input }) => {
+      const specs = specStore.getByProjectId(input.id);
+      const mocks = mockStore.getByProjectId(input.id);
+      const tests = testStore.getByProjectId(input.id);
+
+      const runningMocks = mocks.filter(m => m.status === 'RUNNING').length;
+      const totalTests = tests.reduce((sum, t) => sum + t.total, 0);
+      const passedTests = tests.reduce((sum, t) => sum + t.passed, 0);
+
+      return {
+        specsCount: specs.length,
+        mocksCount: mocks.length,
+        runningMocksCount: runningMocks,
+        testsCount: tests.length,
+        totalTests,
+        passedTests,
+        testPassRate: totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0,
+      };
     }),
 });

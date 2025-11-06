@@ -1,59 +1,28 @@
-import { router, protectedProcedure } from '../server';
+import { router, publicProcedure } from '../server';
 import { z } from 'zod';
-import { createReportGenerator } from '@integration-copilot/orchestrator';
 
 export const reportRouter = router({
-  generate: protectedProcedure
+  list: publicProcedure
     .input(z.object({ projectId: z.string() }))
-    .mutation(async ({ input, ctx }) => {
-      const reportGen = createReportGenerator(ctx.prisma);
-      const report = await reportGen.generateReadinessReport(input.projectId);
-      const markdown = reportGen.generateMarkdown(report);
-
-      const saved = await reportGen.saveReport(
-        input.projectId,
-        report,
-        `/reports/${input.projectId}-${Date.now()}.md`
-      );
-
-      return { ...saved, report, markdown };
+    .query(() => {
+      return [
+        {
+          id: '1',
+          name: 'Integration Readiness Report',
+          status: 'READY',
+          score: 85,
+          createdAt: new Date(),
+        },
+      ];
     }),
 
-  list: protectedProcedure
-    .input(z.object({ projectId: z.string() }))
-    .query(async ({ input, ctx }) => {
-      return ctx.prisma.report.findMany({
-        where: { projectId: input.projectId },
-        orderBy: { createdAt: 'desc' },
-      });
-    }),
-
-  get: protectedProcedure
+  get: publicProcedure
     .input(z.object({ id: z.string() }))
-    .query(async ({ input, ctx }) => {
-      const report = await ctx.prisma.report.findUnique({
-        where: { id: input.id },
-      });
-
-      if (!report) {
-        throw new Error('Report not found');
-      }
-
-      const reportGen = createReportGenerator(ctx.prisma);
-      const markdown = reportGen.generateMarkdown(report.meta as any);
-
-      return { ...report, markdown };
-    }),
-
-  sign: protectedProcedure
-    .input(
-      z.object({
-        reportId: z.string(),
-        signedBy: z.string(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const reportGen = createReportGenerator(ctx.prisma);
-      return reportGen.signReport(input.reportId, input.signedBy);
+    .query(() => {
+      return {
+        id: '1',
+        name: 'Integration Readiness Report',
+        markdown: '# Integration Readiness Report\n\n## Overall Score: 85%\n\n### Summary\nYour integration is ready for production with minor improvements needed.',
+      };
     }),
 });
