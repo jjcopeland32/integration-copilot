@@ -1,7 +1,10 @@
 node_modules
 .next
 .env*
+!.env.example
 .turbo
 .vercel
 dist
+.artifacts
+.cache
 .DS_Store

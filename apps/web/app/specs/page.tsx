@@ -1,138 +1,168 @@
-'use client';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import Link from 'next/link';
+import { revalidatePath } from 'next/cache';
+import { ingestOpenAPI, generateBlueprint } from '@integration-copilot/spec-engine';
+import { stripePaymentSpec } from '@/lib/sample-specs';
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { FileCode, Upload, Sparkles, Server, TestTube, CheckCircle } from 'lucide-react';
+const BLUEPRINT_DIR = path.join(process.cwd(), 'apps/web/public/blueprints');
+const CACHE_DIR = path.join(process.cwd(), '.cache');
+const DEMO_STATE_PATH = path.join(CACHE_DIR, 'spec-demo.json');
+const LAST_RUN_PATH = path.join(CACHE_DIR, 'spec-demo-last-run.json');
 
-export default function SpecsPage() {
-  const [importing, setImporting] = useState(false);
-  const [specs, setSpecs] = useState([
-    { id: '1', name: 'Stripe Payment API', type: 'OPENAPI', endpoints: 12, status: 'imported' },
-    { id: '2', name: 'Todo API', type: 'OPENAPI', endpoints: 5, status: 'imported' },
-  ]);
-  const [selectedSpec, setSelectedSpec] = useState<string | null>(null);
+interface DemoState {
+  blueprintUrl: string;
+  mockBaseUrl: string;
+  updatedAt: string;
+  title: string;
+}
 
-  const handleLoadSamples = async () => {
-    setImporting(true);
-    // Simulate loading
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setImporting(false);
-    alert('Sample specs loaded! Check the Stripe Payment API and Todo API cards.');
+interface RunState {
+  ok: boolean;
+  summary?: {
+    total: number;
+    passed: number;
+    failed: number;
+    skipped: number;
+  };
+  finishedAt?: string;
+}
+
+async function readJsonFile<T>(filePath: string): Promise<T | null> {
+  try {
+    const raw = await fs.readFile(filePath, 'utf8');
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function writeJsonFile(filePath: string, data: unknown) {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+async function loadSampleSpecAction() {
+  'use server';
+
+  try {
+    const petstoreUrl = 'https://petstore3.swagger.io/api/v3/openapi.json';
+    let model;
+    try {
+      model = await ingestOpenAPI({ urlOrString: petstoreUrl });
+    } catch (error) {
+      console.warn('[Specs] Falling back to local sample spec', error);
+      model = await ingestOpenAPI({ urlOrString: stripePaymentSpec });
+    }
+
+    const blueprint = generateBlueprint(model, { scope: 'demo' });
+    await fs.mkdir(BLUEPRINT_DIR, { recursive: true });
+    const blueprintPath = path.join(BLUEPRINT_DIR, 'petstore-demo.md');
+    await fs.writeFile(blueprintPath, blueprint.markdown);
+
+    const demoState: DemoState = {
+      blueprintUrl: '/blueprints/petstore-demo.md',
+      mockBaseUrl: 'http://localhost:4010/mock/petstore',
+      updatedAt: new Date().toISOString(),
+      title: blueprint.json.title ?? 'Petstore',
+    };
+
+    await writeJsonFile(DEMO_STATE_PATH, demoState);
+    revalidatePath('/specs');
+  } catch (error) {
+    console.error('[Specs] Unable to load sample spec', error);
+    throw error;
+  }
+}
+
+async function runPaymentsBaselineAction() {
+  'use server';
+
+  const demoState = await readJsonFile<DemoState>(DEMO_STATE_PATH);
+  const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tests/run`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      suiteId: 'PAYMENTS_BASELINE_v1',
+      baseUrl: demoState?.mockBaseUrl || baseUrl,
+    }),
+  });
+  const data = await response.json();
+
+  const runState: RunState = {
+    ok: response.ok,
+    summary: data.result?.summary,
+    finishedAt: data.result?.finishedAt,
   };
 
-  const handleGenerateBlueprint = async (specId: string) => {
-    alert(`Generating blueprint for spec ${specId}...\n\nThis will analyze the API spec and create a detailed integration blueprint with:\n- Endpoint documentation\n- Authentication requirements\n- Data models\n- Integration steps`);
-  };
+  await writeJsonFile(LAST_RUN_PATH, runState);
+  revalidatePath('/specs');
+}
 
-  const handleGenerateMock = async (specId: string) => {
-    alert(`Generating mock server for spec ${specId}...\n\nThis will create:\n- Mock API server on port 3001\n- Realistic response data\n- Latency simulation\n- Request logging`);
-  };
+export const dynamic = 'force-dynamic';
 
-  const handleGenerateTests = async (specId: string) => {
-    alert(`Generating golden tests for spec ${specId}...\n\nThis will create 10 test categories:\n1. Authentication\n2. Idempotency\n3. Rate Limiting\n4. Error Handling\n5. Webhooks\n6. Pagination\n7. Filtering\n8. Versioning\n9. CORS\n10. Security Headers`);
-  };
+export default async function SpecsPage() {
+  const demoState = await readJsonFile<DemoState>(DEMO_STATE_PATH);
+  const runState = await readJsonFile<RunState>(LAST_RUN_PATH);
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between animate-in">
-        <div>
-          <h1 className="text-4xl font-bold gradient-text">API Specifications</h1>
-          <p className="text-lg text-gray-600 mt-2">
-            Import and manage your OpenAPI/AsyncAPI specs
-          </p>
-        </div>
-        <Button 
-          size="lg" 
-          variant="gradient" 
-          className="gap-2"
-          onClick={handleLoadSamples}
-          disabled={importing}
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-semibold">Spec → Blueprint → Mock</h1>
+        <p className="text-sm text-gray-500">
+          Load the Petstore sample spec, generate a deterministic blueprint, and stage a mock base URL for demos.
+        </p>
+      </div>
+
+      <form action={loadSampleSpecAction}>
+        <button
+          type="submit"
+          className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-500 transition"
         >
-          <Upload className="h-5 w-5" />
-          {importing ? 'Loading...' : 'Load Sample Specs'}
-        </Button>
-      </div>
+          Load Sample Spec (Petstore)
+        </button>
+      </form>
 
-      {/* Specs Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {specs.map((spec, index) => (
-          <Card
-            key={spec.id}
-            className="card-hover animate-in"
-            style={{ animationDelay: `${index * 100}ms` }}
-          >
-            <CardHeader>
-              <div className="flex items-start justify-between mb-4">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
-                  <FileCode className="h-6 w-6 text-white" />
-                </div>
-                <Badge variant="success">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  {spec.status}
-                </Badge>
-              </div>
-              <CardTitle className="text-xl">{spec.name}</CardTitle>
-              <p className="text-sm text-gray-600">{spec.type} • {spec.endpoints} endpoints</p>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-500"
-                onClick={() => handleGenerateBlueprint(spec.id)}
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Generate Blueprint
-              </Button>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleGenerateMock(spec.id)}
-                >
-                  <Server className="h-4 w-4 mr-1" />
-                  Mock
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleGenerateTests(spec.id)}
-                >
-                  <TestTube className="h-4 w-4 mr-1" />
-                  Tests
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {demoState && (
+        <div className="rounded-lg border border-gray-200 p-4 space-y-2">
+          <p className="text-sm text-gray-500">
+            Last generated at {new Date(demoState.updatedAt).toLocaleString()}.
+          </p>
+          <p className="text-sm">
+            Blueprint:{' '}
+            <Link className="text-blue-600 underline" href={demoState.blueprintUrl}>
+              {demoState.title} blueprint
+            </Link>
+          </p>
+          <p className="text-sm">Mock base URL: {demoState.mockBaseUrl}</p>
+        </div>
+      )}
 
-      {/* Instructions */}
-      <Card className="animate-in" style={{ animationDelay: '300ms' }}>
-        <CardHeader>
-          <CardTitle className="text-xl">🚀 How to Use</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4 text-gray-700">
-            <div>
-              <p className="font-semibold mb-2">1. Load Sample Specs</p>
-              <p className="text-sm">Click "Load Sample Specs" to import pre-configured Stripe and Todo API specifications.</p>
-            </div>
-            <div>
-              <p className="font-semibold mb-2">2. Generate Blueprint</p>
-              <p className="text-sm">Create a detailed integration blueprint with endpoint documentation and requirements.</p>
-            </div>
-            <div>
-              <p className="font-semibold mb-2">3. Create Mock Server</p>
-              <p className="text-sm">Generate a mock API server for testing without hitting the real API.</p>
-            </div>
-            <div>
-              <p className="font-semibold mb-2">4. Run Golden Tests</p>
-              <p className="text-sm">Execute 10 comprehensive test suites covering authentication, rate limiting, webhooks, and more.</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <form action={runPaymentsBaselineAction}>
+        <button
+          type="submit"
+          className="px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-500 transition"
+        >
+          Run PAYMENTS Baseline
+        </button>
+      </form>
+
+      {runState && (
+        <div className="rounded-lg border border-gray-200 p-4">
+          <h2 className="text-lg font-semibold">Last Golden Test Run</h2>
+          <p className="text-sm text-gray-500">
+            {runState.finishedAt ? `Finished ${new Date(runState.finishedAt).toLocaleString()}` : 'No completed run yet.'}
+          </p>
+          {runState.summary ? (
+            <p className="text-sm">
+              Total {runState.summary.total} · Passed {runState.summary.passed} · Failed {runState.summary.failed} · Skipped {runState.summary.skipped}
+            </p>
+          ) : (
+            <p className="text-sm text-gray-500">No summary recorded yet.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

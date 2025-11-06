@@ -1,10 +1,12 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
+import { Server } from 'http';
 import { MockRoute, MockConfig } from './generator';
 
 export class MockServer {
   private app: Express;
   private config: MockConfig;
+  private server?: Server;
 
   constructor(config: MockConfig) {
     this.app = express();
@@ -105,12 +107,26 @@ export class MockServer {
 
   listen(port: number): Promise<void> {
     return new Promise((resolve) => {
-      this.app.listen(port, () => {
+      this.server = this.app.listen(port, () => {
         console.log(`Mock server running on port ${port}`);
         console.log(`Base URL: ${this.config.baseUrl}`);
         resolve();
       });
     });
+  }
+
+  async close(): Promise<void> {
+    if (!this.server) return;
+    await new Promise<void>((resolve, reject) => {
+      this.server?.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
+    this.server = undefined;
   }
 }
 
