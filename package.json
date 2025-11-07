@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "pnpm -C apps/web dev",
-    "build:packages": "pnpm -C packages/spec-engine build && pnpm -C packages/mockgen build && pnpm -C packages/validator build && pnpm -C packages/orchestrator build && pnpm -C packages/connectors build",
+    "build:packages": "pnpm -C packages/spec-engine build && pnpm -C packages/mockgen build && pnpm -C packages/validator build && pnpm -C packages/orchestrator build && pnpm -C packages/connectors build && pnpm -C packages/testkit build",
     "build": "pnpm build:packages",
     "build:all": "pnpm build:packages && pnpm -C apps/web build",
     "lint": "pnpm -r lint",

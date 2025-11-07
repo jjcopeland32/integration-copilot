@@ -1,191 +1,87 @@
 {
   "name": "PAYMENTS_BASELINE_v1",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "cases": [
     {
-      "id": "auth_200",
-      "name": "Auth works",
+      "id": "pet_login",
+      "name": "User login succeeds",
       "type": "positive",
       "request": {
         "method": "GET",
-        "url": "/auth/check"
+        "url": "/user/login?username=demo&password=secret"
       },
       "expect": {
         "status": 200
       }
     },
     {
-      "id": "charge_create",
-      "name": "Create charge 200",
-      "type": "positive",
+      "id": "pet_lookup_repeat",
+      "name": "Repeated pet lookup is stable",
+      "type": "consistency",
       "request": {
-        "method": "POST",
-        "url": "/charges",
-        "headers": {
-          "Idempotency-Key": "{{uuid}}"
-        },
-        "body": {
-          "amount": 1099,
-          "currency": "USD",
-          "source": "tok_visa"
-        }
-      },
-      "expect": {
-        "status": 200,
-        "webhooks": [
-          "payment_succeeded"
-        ]
-      }
-    },
-    {
-      "id": "idempotency",
-      "name": "Idempotency enforced",
-      "type": "negative",
-      "request": {
-        "method": "POST",
+        "method": "GET",
+        "url": "/pet/42",
         "repeat": 2,
-        "url": "/charges",
-        "headers": {
-          "Idempotency-Key": "same-key"
-        },
-        "body": {
-          "amount": 1099,
-          "currency": "USD",
-          "source": "tok_visa"
-        }
+        "thinkTimeMs": 100
       },
       "expect": {
         "status": 200,
-        "uniqueness": "single_charge"
+        "uniqueness": "single_resource"
       }
     },
     {
-      "id": "refund_full",
-      "name": "Refund full amount",
-      "type": "positive",
-      "request": {
-        "method": "POST",
-        "url": "/refunds",
-        "body": {
-          "chargeId": "{{from:charge_create}}",
-          "amount": "FULL"
-        }
-      },
-      "expect": {
-        "status": 200,
-        "webhooks": [
-          "refund_processed"
-        ]
-      }
-    },
-    {
-      "id": "refund_partial",
-      "name": "Refund partial amount",
-      "type": "positive",
-      "request": {
-        "method": "POST",
-        "url": "/refunds",
-        "body": {
-          "chargeId": "{{from:charge_create}}",
-          "amount": 500
-        }
-      },
-      "expect": {
-        "status": 200,
-        "webhooks": [
-          "refund_processed"
-        ],
-        "remaining": 599
-      }
-    },
-    {
-      "id": "invalid_currency",
-      "name": "Invalid currency 400",
-      "type": "negative",
-      "request": {
-        "method": "POST",
-        "url": "/charges",
-        "headers": {
-          "Idempotency-Key": "{{uuid}}"
-        },
-        "body": {
-          "amount": 1000,
-          "currency": "XYZ",
-          "source": "tok_visa"
-        }
-      },
-      "expect": {
-        "status": 400,
-        "errorSchema": "#/components/schemas/Error"
-      }
-    },
-    {
-      "id": "missing_idempotency",
-      "name": "Missing Idempotency-Key",
-      "type": "negative",
-      "request": {
-        "method": "POST",
-        "url": "/charges",
-        "body": {
-          "amount": 1000,
-          "currency": "USD",
-          "source": "tok_visa"
-        }
-      },
-      "expect": {
-        "status": 400,
-        "hint": "Idempotency-Key required"
-      }
-    },
-    {
-      "id": "webhook_retry",
-      "name": "Webhook retries honored",
-      "type": "resilience",
-      "webhook": {
-        "name": "payment_succeeded",
-        "firstResponse": 500,
-        "secondResponse": 200
-      },
-      "expect": {
-        "retries": ">=1",
-        "idempotent": true
-      }
-    },
-    {
-      "id": "rate_limit",
-      "name": "429 backoff respected",
+      "id": "inventory_resilience",
+      "name": "Inventory endpoint backs off on 429",
       "type": "resilience",
       "request": {
-        "method": "POST",
-        "url": "/charges",
-        "headers": {
-          "Idempotency-Key": "{{uuid}}"
-        },
-        "body": {
-          "amount": 1099,
-          "currency": "USD",
-          "source": "tok_visa"
+        "method": "GET",
+        "url": "/store/inventory",
+        "policy": {
+          "maxAttempts": 2,
+          "baseDelayMs": 150
         },
         "simulate": {
           "rateLimit": true
         }
       },
       "expect": {
+        "status": 200,
         "clientBackoff": true
       }
     },
     {
-      "id": "dispute_event",
-      "name": "Dispute webhook captured",
-      "type": "event",
-      "simulate": {
-        "dispute": true
+      "id": "place_order",
+      "name": "Order placement echoes payload",
+      "type": "positive",
+      "request": {
+        "method": "POST",
+        "url": "/store/order",
+        "headers": {
+          "X-API-Key": "demo-key"
+        },
+        "body": {
+          "id": 123,
+          "petId": 42,
+          "quantity": 1,
+          "status": "placed"
+        }
       },
       "expect": {
-        "webhooks": [
-          "dispute_created"
-        ],
-        "evidenceStub": true
+        "status": 200
+      }
+    },
+    {
+      "id": "pet_search",
+      "name": "Search by status",
+      "type": "positive",
+      "request": {
+        "method": "GET",
+        "url": "/pet/findByStatus?status=available",
+        "repeat": 3,
+        "thinkTimeMs": 50
+      },
+      "expect": {
+        "status": 200
       }
     }
   ]
