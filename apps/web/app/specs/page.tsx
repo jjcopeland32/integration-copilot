@@ -2,8 +2,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
+import { FileCode, Server, Sparkles, TestTube, CheckCircle, Upload } from 'lucide-react';
 import { ingestOpenAPI, generateBlueprint } from '@integration-copilot/spec-engine';
 import { stripePaymentSpec } from '@/lib/sample-specs';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 const BLUEPRINT_DIR = path.join(process.cwd(), 'apps/web/public/blueprints');
 const CACHE_DIR = path.join(process.cwd(), '.cache');
@@ -26,6 +30,14 @@ interface RunState {
     skipped: number;
   };
   finishedAt?: string;
+}
+
+interface SampleSpec {
+  id: string;
+  name: string;
+  type: string;
+  endpoints: number;
+  description: string;
 }
 
 async function readJsonFile<T>(filePath: string): Promise<T | null> {
@@ -100,69 +112,152 @@ async function runPaymentsBaselineAction() {
   revalidatePath('/specs');
 }
 
+function getSampleSpecs(demoState: DemoState | null): SampleSpec[] {
+  return [
+    {
+      id: 'petstore',
+      name: demoState?.title ?? 'Petstore Sample API',
+      type: 'OPENAPI 3.0',
+      endpoints: 20,
+      description: 'Canonical Petstore reference spec imported from Swagger.',
+    },
+    {
+      id: 'stripe',
+      name: 'Stripe Payments API',
+      type: 'OPENAPI (local sample)',
+      endpoints: 32,
+      description: 'Curated payments flows used for baseline certification demos.',
+    },
+  ];
+}
+
 export const dynamic = 'force-dynamic';
 
 export default async function SpecsPage() {
   const demoState = await readJsonFile<DemoState>(DEMO_STATE_PATH);
   const runState = await readJsonFile<RunState>(LAST_RUN_PATH);
+  const sampleSpecs = getSampleSpecs(demoState);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">Spec → Blueprint → Mock</h1>
-        <p className="text-sm text-gray-500">
-          Load the Petstore sample spec, generate a deterministic blueprint, and stage a mock base URL for demos.
-        </p>
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-4xl font-bold gradient-text">API Specifications</h1>
+          <p className="text-lg text-gray-600 mt-2">
+            Import public specs, generate blueprints, and wire up deterministic mock servers.
+          </p>
+        </div>
+        <form action={loadSampleSpecAction} className="flex justify-end">
+          <Button type="submit" size="lg" variant="gradient" className="gap-2">
+            <Upload className="h-5 w-5" />
+            Load Sample Spec (Petstore)
+          </Button>
+        </form>
       </div>
 
-      <form action={loadSampleSpecAction}>
-        <button
-          type="submit"
-          className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-500 transition"
-        >
-          Load Sample Spec (Petstore)
-        </button>
-      </form>
+      <div className="grid gap-6 md:grid-cols-2">
+        {sampleSpecs.map((spec, index) => (
+          <Card key={spec.id} className="card-hover animate-in" style={{ animationDelay: `${index * 100}ms` }}>
+            <CardHeader>
+              <div className="flex items-start justify-between mb-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
+                  <FileCode className="h-6 w-6 text-white" />
+                </div>
+                <Badge variant={demoState ? 'success' : 'info'} className="gap-1">
+                  <CheckCircle className="h-3 w-3" />
+                  {demoState ? 'Ready' : 'Demo'}
+                </Badge>
+              </div>
+              <CardTitle className="text-xl">{spec.name}</CardTitle>
+              <p className="text-sm text-gray-600">
+                {spec.type} • {spec.endpoints} endpoints
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-600 leading-relaxed">{spec.description}</p>
+              {spec.id === 'petstore' && demoState && (
+                <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 text-sm">
+                  <p className="font-semibold text-blue-700 mb-1">Blueprint & Mock ready</p>
+                  <p className="text-blue-700">
+                    Blueprint:{' '}
+                    <Link className="underline" href={demoState.blueprintUrl}>
+                      View generated markdown
+                    </Link>
+                  </p>
+                  <p className="text-blue-700">Mock base URL: {demoState.mockBaseUrl}</p>
+                  <p className="text-xs text-blue-500 mt-2">
+                    Generated {new Date(demoState.updatedAt).toLocaleString()}
+                  </p>
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-2">
+                <Button type="button" className="bg-gradient-to-r from-purple-500 to-pink-500 gap-2">
+                  <Sparkles className="h-4 w-4" /> Blueprint
+                </Button>
+                <Button type="button" variant="outline" className="gap-1">
+                  <Server className="h-4 w-4" /> Mock
+                </Button>
+                <Button type="button" variant="outline" className="gap-1">
+                  <TestTube className="h-4 w-4" /> Tests
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-      {demoState && (
-        <div className="rounded-lg border border-gray-200 p-4 space-y-2">
-          <p className="text-sm text-gray-500">
-            Last generated at {new Date(demoState.updatedAt).toLocaleString()}.
+      <Card className="animate-in" style={{ animationDelay: '300ms' }}>
+        <CardHeader>
+          <CardTitle className="text-xl">🚀 Golden Test Baseline</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Kick off the PAYMENTS baseline suite using the TestKit runner. Results are cached below for quick demos.
           </p>
-          <p className="text-sm">
-            Blueprint:{' '}
-            <Link className="text-blue-600 underline" href={demoState.blueprintUrl}>
-              {demoState.title} blueprint
-            </Link>
-          </p>
-          <p className="text-sm">Mock base URL: {demoState.mockBaseUrl}</p>
-        </div>
-      )}
-
-      <form action={runPaymentsBaselineAction}>
-        <button
-          type="submit"
-          className="px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-500 transition"
-        >
-          Run PAYMENTS Baseline
-        </button>
-      </form>
-
-      {runState && (
-        <div className="rounded-lg border border-gray-200 p-4">
-          <h2 className="text-lg font-semibold">Last Golden Test Run</h2>
-          <p className="text-sm text-gray-500">
-            {runState.finishedAt ? `Finished ${new Date(runState.finishedAt).toLocaleString()}` : 'No completed run yet.'}
-          </p>
-          {runState.summary ? (
-            <p className="text-sm">
-              Total {runState.summary.total} · Passed {runState.summary.passed} · Failed {runState.summary.failed} · Skipped {runState.summary.skipped}
-            </p>
-          ) : (
-            <p className="text-sm text-gray-500">No summary recorded yet.</p>
+          <form action={runPaymentsBaselineAction}>
+            <Button type="submit" className="gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+              <TestTube className="h-4 w-4" /> Run PAYMENTS Baseline
+            </Button>
+          </form>
+          {runState && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+              {runState.summary ? (
+                <p>
+                  Total {runState.summary.total} • Passed {runState.summary.passed} • Failed {runState.summary.failed} • Skipped{' '}
+                  {runState.summary.skipped}
+                </p>
+              ) : (
+                <p>No summary recorded yet.</p>
+              )}
+              <p className="text-xs mt-1">
+                {runState.finishedAt
+                  ? `Last run: ${new Date(runState.finishedAt).toLocaleString()}`
+                  : 'Run the suite to populate demo metrics.'}
+              </p>
+            </div>
           )}
-        </div>
-      )}
+        </CardContent>
+      </Card>
+
+      <Card className="animate-in" style={{ animationDelay: '400ms' }}>
+        <CardHeader>
+          <CardTitle className="text-xl">🛠️ How the demo works</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 text-sm text-gray-700 md:grid-cols-3">
+          <div>
+            <h3 className="font-semibold mb-1">1. Load Sample Specs</h3>
+            <p>Pulls the Petstore OpenAPI document (with a local fallback) and stores the normalized model.</p>
+          </div>
+          <div>
+            <h3 className="font-semibold mb-1">2. Generate Blueprint & Mock</h3>
+            <p>Writes a markdown blueprint to <code>apps/web/public/blueprints/</code> and stages a deterministic mock base URL.</p>
+          </div>
+          <div>
+            <h3 className="font-semibold mb-1">3. Run Golden Tests</h3>
+            <p>Calls <code>/api/tests/run</code> which delegates to the TestKit CLI logic for summary + artifact capture.</p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
