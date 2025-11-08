@@ -13,7 +13,8 @@
 ## 3) Architecture (expanded)
 - **Spec Engine**: OpenAPI/AsyncAPI ingest → normalized model → Blueprint generator → Mock/Test generators.
 - **Mock Service**: Deterministic responses, rate-limit/latency simulation, error injection.
-- **Validator/Proxy**: Request/response validation, rule evaluation, trace storage.
+- **TestKit**: Golden test suites exposed via `/api/tests/*` and a CLI (`copilot-tests`) for CI + vendor self-serve runs.
+- **Validator/Proxy**: Request/response validation, rule evaluation, trace storage with HMAC verification + redaction.
 - **Orchestrator**: Projects, roles/RBAC, plan board, evidence, reports, integrations (Slack/Jira).
 - **Storage**: Postgres (core), Object storage (request/response bodies & artifacts).
 

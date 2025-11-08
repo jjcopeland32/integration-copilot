@@ -61,6 +61,36 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+### 🔐 HMAC Trace Ingest
+
+```bash
+export TELEMETRY_SIGNING_SECRET=test
+SIG=$(node -e "const payload=JSON.stringify({hello:'world'});const h=require('crypto').createHmac('sha256',process.env.TELEMETRY_SIGNING_SECRET).update(payload).digest('hex');console.log(h)")
+curl -sS -X POST http://localhost:3000/api/trace \
+  -H 'content-type: application/json' \
+  -H "x-trace-signature: $SIG" \
+  -d '{"hello":"world","requestMeta":{"cardNumber":"4111 1111 1111 1111"}}'
+```
+
+The server will persist a redacted payload (card numbers, CVVs, SSNs, and passwords are scrubbed by default) and return `{ ok: true }` when the signature is valid.
+
+### 🧪 Run Golden Tests
+
+- **UI:** Visit [`/specs`](http://localhost:3000/specs), load the Petstore sample spec, then press **Run PAYMENTS Baseline** to execute the demo suite.
+- **CLI:**
+
+  ```bash
+  pnpm testkit:run
+  ```
+
+  The CLI resolves suites from `/api/tests/:suiteId`, runs the HTTP checks, prints a summary, and stores artifacts in `./.artifacts/testruns/`.
+
+### 🐾 Load Sample Spec (Petstore)
+
+On the `/specs` page press **Load Sample Spec (Petstore)**. The Spec Engine ingests the Petstore OpenAPI document, generates a markdown blueprint under `apps/web/public/blueprints/`, and stages a demo mock base URL for downstream tests.
+
+---
+
 ## 🧪 Try It Out
 
 ### 1. Load Sample API Specs

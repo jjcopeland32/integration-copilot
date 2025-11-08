@@ -1,8 +1,7 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import superjson from 'superjson';
-
-const prisma = new PrismaClient();
+import { prisma } from '../prisma';
 
 export interface Context {
   prisma: PrismaClient;

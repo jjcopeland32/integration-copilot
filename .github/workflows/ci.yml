@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - feature/**
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      APP_URL: http://localhost:3000
+      TELEMETRY_SIGNING_SECRET: test
+      RBAC_DISABLED: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm -r build
+
+      - name: Start web app
+        run: |
+          pnpm dev &
+          echo $! > dev.pid
+        working-directory: .
+
+      - name: Wait for healthcheck
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server did not become ready" >&2
+          cat dev.pid | xargs kill || true
+          exit 1
+
+      - name: Run golden tests
+        run: pnpm testkit:run
+
+      - name: Stop web app
+        if: always()
+        run: |
+          if [ -f dev.pid ]; then
+            cat dev.pid | xargs kill || true
+          fi
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-test-artifacts
+          path: ./.artifacts/testruns
+          if-no-files-found: warn

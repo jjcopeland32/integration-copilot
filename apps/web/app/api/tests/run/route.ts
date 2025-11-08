@@ -1,65 +1,77 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { NextRequest, NextResponse } from 'next/server';
-import { runSuiteById } from '@integration-copilot/testkit';
+import { runSuite, Actor } from '@integration-copilot/testkit';
+import { RBACError, requireRole } from '@/lib/rbac';
+import { getSuiteById } from '@/lib/test-suites';
 
-// SSRF Fix: Base URL validation helper.
-function isValidBaseUrl(baseUrl: string): boolean {
+export const dynamic = 'force-dynamic';
+
+interface RunPayload {
+  suiteId: string;
+  baseUrl?: string;
+  actor?: Actor;
+}
+
+async function persistArtifacts(result: unknown) {
   try {
-    // Only allow https or http protocol
-    const url = new URL(baseUrl, 'http://dummy');
-    if (!/^https?:$/.test(url.protocol)) return false;
-    // HOSTNAMES TO BLOCK: localhost, loopback, private, or link-local addresses
-    const forbiddenHosts = ['localhost', '127.0.0.1', '::1'];
-    if (forbiddenHosts.includes(url.hostname)) return false;
-    // Reject IPv4 private and link-local (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16)
-    const privateRanges = [
-      /^(10\.\d{1,3}\.\d{1,3}\.\d{1,3})$/,
-      /^(172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})$/,
-      /^(192\.168\.\d{1,3}\.\d{1,3})$/,
-      /^(169\.254\.\d{1,3}\.\d{1,3})$/,
-    ];
-    if (privateRanges.some(rx => rx.test(url.hostname))) return false;
-    // Also reject if host ends with .local or .internal (optional)
-    if (/\.(local|internal)$/.test(url.hostname)) return false;
-    return true;
-  } catch {
-    return false;
+    const artifactsDir = path.join(process.cwd(), '.artifacts/testruns');
+    await fs.mkdir(artifactsDir, { recursive: true });
+    const fileName = `${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    await fs.writeFile(path.join(artifactsDir, fileName), JSON.stringify(result, null, 2));
+  } catch (error) {
+    console.warn('[TestKit] Unable to persist artifacts', error);
   }
 }
-export async function POST(request: NextRequest) {
+
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const suiteId = body?.suiteId as string | undefined;
-    const baseUrl = body?.baseUrl as string | undefined;
-
-    if (!suiteId || !baseUrl) {
-      return NextResponse.json(
-        { error: 'suiteId and baseUrl are required' },
-        { status: 400 }
-      );
-    }
-
-    // SSRF Fix: Validate the submitted baseUrl is safe.
-    if (!isValidBaseUrl(baseUrl)) {
-      return NextResponse.json(
-        { error: 'Invalid or forbidden baseUrl' },
-        { status: 400 }
-      );
-    }
-
-    const result = await runSuiteById(suiteId, {
-      baseUrl,
-      saveArtifacts: true,
-    });
-
-    return NextResponse.json({
-      suiteId,
-      runId: result.runId,
-      summary: result.summary,
-    });
+    await requireRole(['OWNER', 'ADMIN', 'VENDOR', 'PARTNER']);
   } catch (error) {
-    console.error('[tests/run] failed to execute suite', error);
+    if (error instanceof RBACError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+    }
+    throw error;
+  }
+
+  let payload: RunPayload;
+  try {
+    payload = (await req.json()) as RunPayload;
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Invalid JSON payload' }, { status: 400 });
+  }
+
+  if (!payload?.suiteId) {
+    return NextResponse.json({ ok: false, error: 'suiteId is required' }, { status: 400 });
+  }
+
+  const suite = await getSuiteById(payload.suiteId);
+  if (!suite) {
+    return NextResponse.json({ ok: false, error: 'Suite not found' }, { status: 404 });
+  }
+
+  const baseUrl = payload.baseUrl || process.env.APP_URL || 'http://localhost:3000';
+
+  try {
+    const result = await runSuite({ suite, baseUrl, actor: payload.actor });
+    await persistArtifacts(result);
+
+    return NextResponse.json({ ok: true, result });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unable to run golden test suite';
+    const failureArtifact = {
+      ok: false,
+      suiteId: suite.name,
+      baseUrl,
+      actor: payload.actor,
+      error: message,
+      occurredAt: new Date().toISOString(),
+    };
+    await persistArtifacts(failureArtifact);
+
     return NextResponse.json(
-      { error: 'Failed to execute golden tests' },
+      { ok: false, error: message },
       { status: 500 }
     );
   }

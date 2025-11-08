@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadSuiteById } from '@integration-copilot/testkit';
+import { RBACError, requireRole } from '@/lib/rbac';
+import { getSuiteById } from '@/lib/test-suites';
 
-export async function GET(
-  _request: NextRequest,
-  context: { params: { suiteId: string } }
-) {
-  const { suiteId } = context.params;
+export const dynamic = 'force-dynamic';
 
+export async function GET(_req: NextRequest, context: any) {
+  const { params } = context as { params: { suiteId: string } };
   try {
-    const suite = await loadSuiteById(suiteId);
-    if (!suite) {
-      return NextResponse.json(
-        { error: `Suite ${suiteId} not found` },
-        { status: 404 }
-      );
+    await requireRole(['OWNER','ADMIN','VENDOR','PARTNER']);
+  } catch (error) {
+    if (error instanceof RBACError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
     }
-
+    console.error('[tests] RBAC check failed', error);
+    return NextResponse.json({ ok: false, error: 'Authorization error' }, { status: 500 });
+  }
+  try {
+    const suite = await getSuiteById(params.suiteId);
+    if (!suite) {
+      return NextResponse.json({ ok: false, error: `Suite ${params.suiteId} not found` }, { status: 404 });
+    }
     return NextResponse.json(suite);
   } catch (error) {
     console.error('[tests] failed to load suite', error);
-    return NextResponse.json(
-      { error: 'Unable to load suite definition' },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: 'Unable to load suite definition' }, { status: 500 });
   }
 }
+

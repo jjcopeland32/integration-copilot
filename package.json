@@ -11,6 +11,7 @@
     "dev": "pnpm -C apps/web dev",
     "build:packages": "pnpm -C packages/spec-engine build && pnpm -C packages/mockgen build && pnpm -C packages/validator build && pnpm -C packages/orchestrator build && pnpm -C packages/connectors build && pnpm -C packages/testkit build",
     "build": "pnpm build:packages",
+    "testkit:run": "pnpm -C packages/testkit build && node packages/testkit/bin/copilot-tests.js run --suite PAYMENTS_BASELINE_v1 --base http://localhost:3000",
     "build:all": "pnpm build:packages && pnpm -C apps/web build",
     "lint": "pnpm -r lint",
     "prisma:generate": "pnpm -C apps/web prisma generate",

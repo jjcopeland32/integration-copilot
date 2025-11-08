@@ -1,11 +1,10 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { TRPCProvider } from '@/lib/trpc/client';
 import { Nav } from '@/components/layout/nav';
 import { Sparkles } from 'lucide-react';
 
-const inter = Inter({ subsets: ['latin'] });
+const fontClass = 'font-sans antialiased';
 
 export const metadata: Metadata = {
   title: 'Integration Copilot',
@@ -17,10 +16,23 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const missingEnv: string[] = [];
+  if (!process.env.TELEMETRY_SIGNING_SECRET) {
+    missingEnv.push('TELEMETRY_SIGNING_SECRET');
+  }
+  if (!process.env.APP_URL) {
+    missingEnv.push('APP_URL');
+  }
+
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={fontClass}>
         <TRPCProvider>
+          {missingEnv.length > 0 && (
+            <div className="bg-amber-100 border-b border-amber-300 text-amber-950 px-6 py-3 text-sm">
+              <strong>Demo mode:</strong> Missing env vars {missingEnv.join(', ')}. Some integrations will use fallback values until configured.
+            </div>
+          )}
           <div className="flex h-screen overflow-hidden">
             {/* Sidebar */}
             <aside className="w-72 glass border-r border-white/20 animate-slide-in">
