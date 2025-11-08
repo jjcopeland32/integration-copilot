@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import sanitize from 'sanitize-filename';
 import { randomUUID } from 'crypto';
 import { loadSuiteById } from './loader';
 import { getArtifactsDir } from './paths';
@@ -250,9 +251,13 @@ export async function runSuite(
 
   if (options.saveArtifacts) {
     const dir = await ensureArtifactsDir();
+    const safeSuiteId = sanitize(suiteId);
+    if (!safeSuiteId) {
+      throw new Error('Suite ID is invalid for artifact filename');
+    }
     const artifactPath = `${dir}/${startedAt
       .toISOString()
-      .replace(/[:.]/g, '-')}-${suiteId}-${runId}.json`;
+      .replace(/[:.]/g, '-')}-${safeSuiteId}-${runId}.json`;
     await fs.writeFile(artifactPath, JSON.stringify(output, null, 2), 'utf8');
   }
 
