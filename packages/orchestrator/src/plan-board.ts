@@ -1,5 +1,24 @@
 import { PrismaClient, PlanStatus } from '@prisma/client';
 
+type PlanItemRecord = {
+  id: string;
+  projectId: string;
+  phase: string;
+  title: string;
+  status: PlanStatus;
+  ownerId?: string | null;
+  dueAt?: Date | string | null;
+  evidence?: { items?: EvidenceItem[] } | null;
+};
+
+type EvidenceItem = {
+  type: 'file' | 'screenshot' | 'log' | 'note';
+  url?: string;
+  content?: string;
+  metadata?: Record<string, any> | null;
+  uploadedAt?: string;
+};
+
 export interface PlanPhase {
   name: string;
   title: string;
@@ -79,7 +98,7 @@ export class PlanBoardManager {
   constructor(private prisma: PrismaClient) {}
 
   async initializeProjectPlan(projectId: string): Promise<void> {
-    const items = [];
+    const items: Array<Omit<PlanItemRecord, 'id'>> = [];
 
     for (const phase of DEFAULT_PHASES) {
       for (const criterion of phase.exitCriteria) {
@@ -118,10 +137,10 @@ export class PlanBoardManager {
   }
 
   async getPlanBoard(projectId: string) {
-    const items = await this.prisma.planItem.findMany({
+    const items = (await this.prisma.planItem.findMany({
       where: { projectId },
       orderBy: [{ phase: 'asc' }, { createdAt: 'asc' }],
-    });
+    })) as PlanItemRecord[];
 
     // Group by phase
     const board: Record<string, any> = {};
@@ -144,15 +163,18 @@ export class PlanBoardManager {
       metadata?: any;
     }
   ) {
-    const item = await this.prisma.planItem.findUnique({
+    const item = (await this.prisma.planItem.findUnique({
       where: { id: itemId },
-    });
+    })) as (PlanItemRecord & { evidence?: { items?: EvidenceItem[] } | null }) | null;
 
     if (!item) {
       throw new Error('Plan item not found');
     }
 
-    const currentEvidence = (item.evidence as any) || { items: [] };
+    const currentEvidence = item.evidence ?? { items: [] as EvidenceItem[] };
+    if (!currentEvidence.items) {
+      currentEvidence.items = [] as EvidenceItem[];
+    }
     currentEvidence.items.push({
       ...evidence,
       uploadedAt: new Date().toISOString(),
@@ -167,9 +189,9 @@ export class PlanBoardManager {
   }
 
   async getPhaseProgress(projectId: string, phase: string) {
-    const items = await this.prisma.planItem.findMany({
+    const items = (await this.prisma.planItem.findMany({
       where: { projectId, phase },
-    });
+    })) as PlanItemRecord[];
 
     const total = items.length;
     const done = items.filter((i) => i.status === PlanStatus.DONE).length;
@@ -189,7 +211,14 @@ export class PlanBoardManager {
   }
 
   async getProjectProgress(projectId: string) {
-    const progress = [];
+    const progress: Array<{
+      phase: string;
+      total: number;
+      done: number;
+      inProgress: number;
+      blocked: number;
+      percentComplete: number;
+    }> = [];
     
     for (const phase of DEFAULT_PHASES) {
       const phaseProgress = await this.getPhaseProgress(projectId, phase.name);

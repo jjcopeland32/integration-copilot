@@ -5,6 +5,13 @@
   "type": "module",
   "main": "src/index.js",
   "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    }
+  },
   "bin": {
     "copilot-tests": "bin/copilot-tests.js"
   },
