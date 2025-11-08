@@ -30,6 +30,8 @@ interface RunState {
     skipped: number;
   };
   finishedAt?: string;
+  status?: number;
+  error?: string;
 }
 
 interface SampleSpec {
@@ -92,21 +94,49 @@ async function runPaymentsBaselineAction() {
 
   const demoState = await readJsonFile<DemoState>(DEMO_STATE_PATH);
   const baseUrl = process.env.APP_URL || 'http://localhost:3000';
-  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tests/run`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      suiteId: 'PAYMENTS_BASELINE_v1',
-      baseUrl: demoState?.mockBaseUrl || baseUrl,
-    }),
-  });
-  const data = await response.json();
+  let runState: RunState;
 
-  const runState: RunState = {
-    ok: response.ok,
-    summary: data.result?.summary,
-    finishedAt: data.result?.finishedAt,
-  };
+  try {
+    const response = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tests/run`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        suiteId: 'PAYMENTS_BASELINE_v1',
+        baseUrl: demoState?.mockBaseUrl || baseUrl,
+      }),
+    });
+    const data = await response
+      .json()
+      .catch(() => ({ ok: false, error: 'Unable to parse response from runner' }));
+
+    if (!response.ok) {
+      runState = {
+        ok: false,
+        status: response.status,
+        error:
+          typeof data?.error === 'string'
+            ? data.error
+            : 'Golden test runner returned an error response',
+        finishedAt: new Date().toISOString(),
+      };
+    } else {
+      runState = {
+        ok: true,
+        status: response.status,
+        summary: data.result?.summary,
+        finishedAt: data.result?.finishedAt || new Date().toISOString(),
+      };
+    }
+  } catch (error) {
+    runState = {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Unexpected error running PAYMENTS baseline',
+      finishedAt: new Date().toISOString(),
+    };
+  }
 
   await writeJsonFile(LAST_RUN_PATH, runState);
   revalidatePath('/specs');
@@ -220,15 +250,28 @@ export default async function SpecsPage() {
             </Button>
           </form>
           {runState && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-              {runState.summary ? (
+            <div
+              className={`rounded-lg border p-3 text-sm ${
+                runState.ok
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : 'border-rose-200 bg-rose-50 text-rose-800'
+              }`}
+            >
+              {runState.ok && runState.summary ? (
                 <p>
                   Total {runState.summary.total} • Passed {runState.summary.passed} • Failed {runState.summary.failed} • Skipped{' '}
                   {runState.summary.skipped}
                 </p>
-              ) : (
-                <p>No summary recorded yet.</p>
-              )}
+              ) : null}
+              {!runState.ok ? (
+                <div className="space-y-1">
+                  <p className="font-semibold">
+                    Last attempt failed{runState.status ? ` (HTTP ${runState.status})` : ''}
+                  </p>
+                  <p>{runState.error ?? 'Unknown error encountered while running the suite.'}</p>
+                </div>
+              ) : null}
+              {runState.ok && !runState.summary ? <p>No summary recorded yet.</p> : null}
               <p className="text-xs mt-1">
                 {runState.finishedAt
                   ? `Last run: ${new Date(runState.finishedAt).toLocaleString()}`

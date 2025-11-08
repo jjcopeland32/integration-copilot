@@ -52,8 +52,27 @@ export async function POST(req: NextRequest) {
 
   const baseUrl = payload.baseUrl || process.env.APP_URL || 'http://localhost:3000';
 
-  const result = await runSuite({ suite, baseUrl, actor: payload.actor });
-  await persistArtifacts(result);
+  try {
+    const result = await runSuite({ suite, baseUrl, actor: payload.actor });
+    await persistArtifacts(result);
 
-  return NextResponse.json({ ok: true, result });
+    return NextResponse.json({ ok: true, result });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unable to run golden test suite';
+    const failureArtifact = {
+      ok: false,
+      suiteId: suite.name,
+      baseUrl,
+      actor: payload.actor,
+      error: message,
+      occurredAt: new Date().toISOString(),
+    };
+    await persistArtifacts(failureArtifact);
+
+    return NextResponse.json(
+      { ok: false, error: message },
+      { status: 500 }
+    );
+  }
 }
