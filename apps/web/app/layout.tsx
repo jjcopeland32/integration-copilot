@@ -6,6 +6,8 @@ import { Sparkles } from 'lucide-react';
 import { UserBar } from '@/components/layout/user-bar';
 import { AuthProvider } from '@/components/auth-provider';
 import { auth } from '@/lib/auth';
+import { ProjectProvider } from '@/components/project-context';
+import { ProjectBanner } from '@/components/project-banner';
 
 const fontClass = 'font-sans antialiased';
 
@@ -34,6 +36,7 @@ export default async function RootLayout({
       <body className={fontClass}>
         <AuthProvider session={session}>
           <TRPCProvider>
+            <ProjectProvider>
             {missingEnv.length > 0 && (
               <div className="bg-amber-100 border-b border-amber-300 text-amber-950 px-6 py-3 text-sm">
                 <strong>Demo mode:</strong> Missing env vars {missingEnv.join(', ')}. Some integrations will use fallback values until configured.
@@ -72,10 +75,12 @@ export default async function RootLayout({
                   <div className="flex justify-end">
                     <UserBar />
                   </div>
+                  <ProjectBanner />
                   {children}
                 </div>
               </main>
             </div>
+            </ProjectProvider>
           </TRPCProvider>
         </AuthProvider>
       </body>

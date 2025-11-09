@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Plus, FileCode, Server, TestTube, TrendingUp, Loader2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useProjectContext } from '@/components/project-context';
 
 function StatCard({
   label,
@@ -52,6 +54,7 @@ function EmptyState() {
 
 function ProjectGrid({
   projects,
+  onSelectProject,
 }: {
   projects: Array<{
     id: string;
@@ -61,6 +64,7 @@ function ProjectGrid({
     mocks: any[];
     suites: any[];
   }>;
+  onSelectProject: (project: { id: string; name: string }) => void;
 }) {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -70,8 +74,8 @@ function ProjectGrid({
         const testsCount = project.suites.length;
 
         return (
-          <Link key={project.id} href={`/projects/${project.id}`}>
             <Card
+              key={project.id}
               className="card-hover animate-in h-full bg-white/90 backdrop-blur"
               style={{ animationDelay: `${index * 60}ms` }}
             >
@@ -120,9 +124,19 @@ function ProjectGrid({
                     <p className="text-lg font-semibold text-gray-900">{testsCount}</p>
                   </div>
                 </div>
+                <div className="flex gap-3">
+                  <Button
+                    className="flex-1"
+                    onClick={() => onSelectProject({ id: project.id, name: project.name })}
+                  >
+                    Open Workspace
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Link href={`/projects/${project.id}`}>Details</Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
-          </Link>
         );
       })}
     </div>
@@ -132,14 +146,18 @@ function ProjectGrid({
 export default function ProjectsPage() {
   const { data: projects = [], isLoading } = trpc.project.list.useQuery();
   const utils = trpc.useUtils();
+  const { setActiveProject } = useProjectContext();
+  const router = useRouter();
   const [showDialog, setShowDialog] = useState(false);
   const [projectName, setProjectName] = useState('New Integration Project');
   const [projectStatus, setProjectStatus] = useState<'DRAFT' | 'ACTIVE' | 'ARCHIVED'>('DRAFT');
   const [projectDescription, setProjectDescription] = useState('Describe the integration goals, vendor, or scope.');
 
   const createProject = trpc.project.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (created) => {
       await utils.project.list.invalidate();
+      setActiveProject({ id: created.id, name: created.name });
+      router.push('/dashboard');
       setProjectName('New Integration Project');
       setProjectDescription('Describe the integration goals, vendor, or scope.');
       setProjectStatus('DRAFT');
@@ -193,7 +211,13 @@ export default function ProjectsPage() {
       ) : projects.length === 0 ? (
         <EmptyState />
       ) : (
-        <ProjectGrid projects={projects} />
+        <ProjectGrid
+          projects={projects}
+          onSelectProject={(project) => {
+            setActiveProject(project);
+            router.push('/dashboard');
+          }}
+        />
       )}
 
       {showDialog && (

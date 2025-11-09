@@ -15,6 +15,7 @@ import {
   Loader2,
   Rocket,
 } from 'lucide-react';
+import { useProjectContext } from '@/components/project-context';
 
 type ActionKind = 'blueprint' | 'mock' | 'tests' | 'import';
 
@@ -173,7 +174,8 @@ function SpecCard({
 
 export default function SpecsPage() {
   const searchParams = useSearchParams();
-  const projectFilter = searchParams.get('projectId') || undefined;
+  const { projectId } = useProjectContext();
+  const projectFilter = searchParams.get('projectId') || projectId || undefined;
   const utils = trpc.useUtils();
   const { data: specs = [], isLoading } = trpc.spec.list.useQuery(
     projectFilter ? { projectId: projectFilter } : { projectId: undefined }

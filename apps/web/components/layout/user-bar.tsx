@@ -7,10 +7,12 @@ import { useSession, signOut } from 'next-auth/react';
 import { LogOut, LogIn, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useProjectContext } from '@/components/project-context';
 
 export function UserBar() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { projectName, clearProject } = useProjectContext();
 
   const initials = useMemo(() => {
     const name = session?.user?.name ?? session?.user?.email ?? '';
@@ -55,7 +57,7 @@ export function UserBar() {
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 shadow-md backdrop-blur">
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 shadow-md backdrop-blur">
       <div
         className={cn(
           'flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white shadow-lg',
@@ -70,6 +72,18 @@ export function UserBar() {
           {session.user.role ?? 'Member'}
         </span>
       </div>
+      {projectName && (
+        <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-600">
+          <span className="font-semibold text-gray-800">{projectName}</span>
+          <button
+            type="button"
+            className="text-blue-500 hover:text-blue-600"
+            onClick={clearProject}
+          >
+            Clear
+          </button>
+        </div>
+      )}
       <Button
         size="sm"
         variant="outline"

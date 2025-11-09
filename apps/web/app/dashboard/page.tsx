@@ -1,10 +1,26 @@
 'use client';
 
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileCode, Server, TestTube, Activity, TrendingUp, Clock, CheckCircle2, Zap } from 'lucide-react';
+import { useProjectContext } from '@/components/project-context';
 
 export default function DashboardPage() {
+  const { projectId, projectName } = useProjectContext();
+
+  if (!projectId) {
+    return (
+      <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
+        <h2 className="text-2xl font-semibold text-gray-900">Select a project to view the dashboard</h2>
+        <p className="mt-2 text-sm text-gray-600">Choose a project in the Projects view to focus the dashboard, specs, mocks, tests, and traces.</p>
+        <Link href="/projects" className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg">
+          Go to Projects
+        </Link>
+      </div>
+    );
+  }
+
   const stats = [
     {
       title: 'Active Projects',
@@ -76,10 +92,10 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="animate-in">
         <h1 className="text-4xl font-bold gradient-text mb-2">
-          Welcome back! 👋
+          {projectName ? `${projectName} overview` : 'Welcome back! 👋'}
         </h1>
         <p className="text-lg text-gray-600">
-          Here's what's happening with your integrations today.
+          Here's what's happening with your selected integration today.
         </p>
       </div>
 

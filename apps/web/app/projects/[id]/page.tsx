@@ -7,7 +7,8 @@ import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useProjectContext } from '@/components/project-context';
 
 export default function ProjectDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
     onSuccess: () => router.push('/projects'),
   });
   const utils = trpc.useUtils();
+  const { setActiveProject } = useProjectContext();
 
   const project = projectQuery.data;
   const [showDelete, setShowDelete] = useState(false);
@@ -35,18 +37,16 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
     },
   });
 
-  if (projectQuery.isLoading) {
+  useEffect(() => {
+    if (project) {
+      setActiveProject({ id: project.id, name: project.name });
+    }
+  }, [project?.id, project?.name, setActiveProject]);
+
+  if (projectQuery.isLoading || !project) {
     return (
       <div className="rounded-3xl border border-gray-100 bg-white/70 p-12 text-center text-gray-500 shadow-inner">
-        Loading project…
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="rounded-3xl border border-dashed border-gray-200 p-12 text-center text-gray-500">
-        Project not found.
+        {projectQuery.isLoading ? 'Loading project…' : 'Project not found.'}
       </div>
     );
   }
