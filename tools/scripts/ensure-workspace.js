@@ -17,6 +17,7 @@ const PACKAGES = [
 
 const args = process.argv.slice(2);
 const withDb = args.includes('--with-db');
+const ROOT_ENV_PATH = path.join(ROOT, '.env');
 
 function run(command, commandArgs, options = {}) {
   const result = spawnSync(command, commandArgs, {
@@ -57,7 +58,7 @@ function parseEnvFile(filePath) {
 }
 
 function ensureEnvFile() {
-  const envPath = path.join(ROOT, '.env');
+  const envPath = ROOT_ENV_PATH;
   if (fs.existsSync(envPath)) {
     return parseEnvFile(envPath);
   }
@@ -70,6 +71,28 @@ function ensureEnvFile() {
   fs.copyFileSync(examplePath, envPath);
   console.log('[setup] Created .env from .env.example');
   return parseEnvFile(envPath);
+}
+
+function ensureNextAppEnv() {
+  const appEnvPath = path.join(ROOT, 'apps', 'web', '.env.local');
+  try {
+    if (!fs.existsSync(ROOT_ENV_PATH)) {
+      return;
+    }
+    const sourceContents = fs.readFileSync(ROOT_ENV_PATH, 'utf8');
+    let needsUpdate = true;
+    if (fs.existsSync(appEnvPath)) {
+      const current = fs.readFileSync(appEnvPath, 'utf8');
+      needsUpdate = current !== sourceContents;
+    }
+    if (needsUpdate) {
+      fs.mkdirSync(path.dirname(appEnvPath), { recursive: true });
+      fs.writeFileSync(appEnvPath, sourceContents);
+      console.log('[setup] Synced apps/web/.env.local with root .env');
+    }
+  } catch (error) {
+    console.warn('[setup] Unable to sync Next.js env file:', error.message);
+  }
 }
 
 function ensurePrismaClient() {
@@ -186,6 +209,7 @@ async function ensureDatabase(env) {
 async function main() {
   try {
     const env = ensureEnvFile();
+    ensureNextAppEnv();
     const hasDependencies = fileExists('node_modules');
 
     if (!hasDependencies) {

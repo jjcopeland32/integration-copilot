@@ -3,6 +3,9 @@ import './globals.css';
 import { TRPCProvider } from '@/lib/trpc/client';
 import { Nav } from '@/components/layout/nav';
 import { Sparkles } from 'lucide-react';
+import { UserBar } from '@/components/layout/user-bar';
+import { AuthProvider } from '@/components/auth-provider';
+import { auth } from '@/lib/auth';
 
 const fontClass = 'font-sans antialiased';
 
@@ -11,7 +14,7 @@ export const metadata: Metadata = {
   description: 'AI-powered API vendor onboarding system',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -24,50 +27,57 @@ export default function RootLayout({
     missingEnv.push('APP_URL');
   }
 
+  const session = await auth();
+
   return (
     <html lang="en">
       <body className={fontClass}>
-        <TRPCProvider>
-          {missingEnv.length > 0 && (
-            <div className="bg-amber-100 border-b border-amber-300 text-amber-950 px-6 py-3 text-sm">
-              <strong>Demo mode:</strong> Missing env vars {missingEnv.join(', ')}. Some integrations will use fallback values until configured.
-            </div>
-          )}
-          <div className="flex h-screen overflow-hidden">
-            {/* Sidebar */}
-            <aside className="w-72 glass border-r border-white/20 animate-slide-in">
-              <div className="p-8">
-                {/* Logo */}
-                <div className="mb-10">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center shadow-lg">
-                      <Sparkles className="w-6 h-6 text-white" />
+        <AuthProvider session={session}>
+          <TRPCProvider>
+            {missingEnv.length > 0 && (
+              <div className="bg-amber-100 border-b border-amber-300 text-amber-950 px-6 py-3 text-sm">
+                <strong>Demo mode:</strong> Missing env vars {missingEnv.join(', ')}. Some integrations will use fallback values until configured.
+              </div>
+            )}
+            <div className="flex h-screen overflow-hidden">
+              {/* Sidebar */}
+              <aside className="w-72 glass border-r border-white/20 animate-slide-in">
+                <div className="p-8">
+                  {/* Logo */}
+                  <div className="mb-10">
+                    <div className="mb-2 flex items-center gap-3">
+                      <div className="gradient-bg flex h-10 w-10 items-center justify-center rounded-xl shadow-lg">
+                        <Sparkles className="h-6 w-6 text-white" />
+                      </div>
+                      <h1 className="gradient-text text-2xl font-bold">
+                        Integration Copilot
+                      </h1>
                     </div>
-                    <h1 className="text-2xl font-bold gradient-text">
-                      Integration Copilot
-                    </h1>
+                    <p className="ml-13 text-sm text-gray-500">
+                      AI-Powered API Onboarding
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-500 ml-13">
-                    AI-Powered API Onboarding
-                  </p>
+
+                  {/* Navigation */}
+                  <Nav />
                 </div>
 
-                {/* Navigation */}
-                <Nav />
-              </div>
+                {/* Bottom decoration */}
+                <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-blue-50/50 to-transparent" />
+              </aside>
 
-              {/* Bottom decoration */}
-              <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-blue-50/50 to-transparent pointer-events-none" />
-            </aside>
-
-            {/* Main content */}
-            <main className="flex-1 overflow-auto">
-              <div className="min-h-full p-8 lg:p-12 animate-in">
-                {children}
-              </div>
-            </main>
-          </div>
-        </TRPCProvider>
+              {/* Main content */}
+              <main className="flex-1 overflow-auto">
+                <div className="min-h-full space-y-6 p-8 lg:p-12 animate-in">
+                  <div className="flex justify-end">
+                    <UserBar />
+                  </div>
+                  {children}
+                </div>
+              </main>
+            </div>
+          </TRPCProvider>
+        </AuthProvider>
       </body>
     </html>
   );
