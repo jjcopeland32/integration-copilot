@@ -25,17 +25,17 @@ A complete, production-ready web application with:
 - Quick access cards
 
 ### 2. Projects (`/projects`)
-- Project list with cards
-- Project creation button
-- Status badges
-- Stats (specs, mocks, tests)
+- Project list with glassmorphism cards
+- Rich creation modal (name, status, description)
+- Status badges + metrics (specs, mocks, tests)
+- Delete confirmation + gradients
 
 ### 3. Project Detail (`/projects/[id]`)
-- Project overview
-- Quick action cards (Import Spec, Start Mock, Generate Report)
-- Specs list
-- Mock services list
-- Test suites list
+- Project overview with status badge
+- Quick action cards (Import Spec modal, Start Mock soon, Report soon)
+- Specs list filtered to the project
+- Manage Specs CTA links to `/specs?projectId=...`
+- Delete project confirmation modal
 
 ### 4. Mocks (`/mocks`)
 - Mock service list
@@ -91,17 +91,14 @@ A complete, production-ready web application with:
    - `delete` - Delete project
 
 2. **Spec Router** (`lib/trpc/routers/spec.ts`)
-   - `importFromUrl` - Import OpenAPI/AsyncAPI from URL
-   - `importFromObject` - Import from JSON object
-   - `generateBlueprint` - Generate customer-scoped blueprint
-   - `list` - List specs
-   - `get` - Get spec details
+   - `list` / `get` - Project-aware spec queries
+   - `importFromUrl` / `importFromObject` - Import & normalize specs
+   - `loadSamples` - Stripe/Todo starter specs
+   - `generateBlueprint` / `generateMock` / `generateTests`
 
 3. **Mock Router** (`lib/trpc/routers/mock.ts`)
-   - `generate` - Generate mock service
-   - `generateTests` - Generate 10 golden tests
-   - `list` - List mock instances
-   - `updateStatus` - Start/stop mock
+   - `list` / `get` - View mock instances
+   - `start` / `stop` - Toggle mock server state
 
 4. **Plan Router** (`lib/trpc/routers/plan.ts`)
    - `initialize` - Initialize 5-phase plan board

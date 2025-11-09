@@ -1,69 +1,338 @@
 'use client';
-import { useState } from 'react';
 
-export default function SpecsPage() {
-  const [loading, setLoading] = useState(false);
-  const [demoInfo, setDemoInfo] = useState<{ blueprintUrl?: string; mockBaseUrl?: string } | null>(null);
-  const [runStatus, setRunStatus] = useState<string | null>(null);
+import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { trpc } from '@/lib/trpc/client';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  FileCode2,
+  CheckCircle2,
+  Sparkles,
+  Beaker,
+  Database,
+  Loader2,
+  Rocket,
+} from 'lucide-react';
 
-  async function loadPetstoreDemo() {
-    setLoading(true);
-    setRunStatus(null);
-    try {
-      // Hit an internal route that returns a normalized model + spins a mock
-      const res = await fetch('/api/specs/sample/petstore', { method: 'POST' });
-      const data = await res.json();
-      setDemoInfo({ blueprintUrl: data?.blueprintUrl, mockBaseUrl: data?.mockBaseUrl });
-    } finally {
-      setLoading(false);
-    }
-  }
+type ActionKind = 'blueprint' | 'mock' | 'tests' | 'import';
 
-  async function runBaseline() {
-    setRunStatus('Running…');
-    try {
-      const res = await fetch('/api/tests/run', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          suiteId: 'PAYMENTS_BASELINE_v1',
-          envKey: 'mock', // safer than sending baseUrl from client
-        }),
-      });
-      const data = await res.json();
-      setRunStatus(data?.ok ? '✅ Passed (see artifacts)' : `❌ Failed: ${data?.error ?? 'Unknown'}`);
-    } catch (e: any) {
-      setRunStatus(`❌ Error: ${e?.message ?? 'Unknown'}`);
-    }
-  }
+function Hero({
+  onLoadSamples,
+  loadingSamples,
+}: {
+  onLoadSamples: () => void;
+  loadingSamples: boolean;
+}) {
+  return (
+    <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 text-white shadow-2xl">
+      <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-3">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/60">
+            Specs & Blueprints
+          </p>
+          <h1 className="text-4xl font-semibold leading-tight">
+            Ingest specs, build blueprints, and spin up mocks in minutes.
+          </h1>
+          <p className="text-sm text-white/80">
+            Import OpenAPI docs, auto-generate reference blueprints, and trigger mock + golden test generation
+            directly from your workspace.
+          </p>
+          <div className="flex flex-wrap gap-3 text-xs uppercase tracking-wide text-white/60">
+            <Badge variant="gradient" className="bg-white/20 text-xs font-semibold text-white shadow">
+              Secure Imports
+            </Badge>
+            <Badge variant="gradient" className="bg-white/20 text-xs font-semibold text-white shadow">
+              Blueprint Engine
+            </Badge>
+            <Badge variant="gradient" className="bg-white/20 text-xs font-semibold text-white shadow">
+              Mock Automation
+            </Badge>
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 rounded-2xl bg-white/10 p-6 backdrop-blur">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-white/20 p-3">
+              <Sparkles className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-white/60">Starter kit</p>
+              <p className="text-lg font-semibold">Petstore + Payments baselines</p>
+            </div>
+          </div>
+          <Button
+            variant="gradient"
+            onClick={onLoadSamples}
+            disabled={loadingSamples}
+            className="gap-2"
+          >
+            {loadingSamples ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading…
+              </>
+            ) : (
+              <>
+                <Rocket className="h-4 w-4" />
+                Load Sample Specs
+              </>
+            )}
+          </Button>
+          <p className="text-xs text-white/70">
+            Instantly primes your workspace with Stripe-like payments and Todo API specs for demos.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SpecCard({
+  spec,
+  onAction,
+  loadingAction,
+}: {
+  spec: {
+    id: string;
+    name: string;
+    version: string;
+    createdAt: Date;
+    kind: string;
+  };
+  onAction: (kind: ActionKind, specId: string) => void;
+  loadingAction: ActionKind | null;
+}) {
+  const created = useMemo(() => new Date(spec.createdAt).toLocaleString(), [spec.createdAt]);
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Specs & Demo</h1>
-
-      <button
-        onClick={loadPetstoreDemo}
-        disabled={loading}
-        className="px-4 py-2 rounded bg-black text-white disabled:opacity-60"
-      >
-        {loading ? 'Loading…' : 'Load Sample Spec (Petstore)'}
-      </button>
-
-      {demoInfo?.blueprintUrl && (
-        <div className="space-y-2">
-          <div>
-            Blueprint: <a className="text-blue-600 underline" href={demoInfo.blueprintUrl}>{demoInfo.blueprintUrl}</a>
+    <Card className="group card-hover bg-white/90 backdrop-blur">
+      <CardHeader className="space-y-2">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <CardTitle className="text-xl text-gray-900">{spec.name}</CardTitle>
+            <p className="text-xs text-gray-500">Version {spec.version}</p>
           </div>
-          <div>Mock Base URL: <code>{demoInfo.mockBaseUrl}</code></div>
-          <button
-            onClick={runBaseline}
-            className="px-4 py-2 rounded bg-indigo-600 text-white"
-          >
-            Run Payments Baseline
-          </button>
-          {runStatus && <div className="text-sm">{runStatus}</div>}
+          <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 p-3 text-white shadow-lg">
+            <FileCode2 className="h-5 w-5" />
+          </div>
         </div>
-      )}
+        <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+          <Badge variant="outline">{spec.kind}</Badge>
+          <span>Imported {created}</span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-3">
+          <Button
+            size="sm"
+            className="flex-1 gap-1"
+            disabled={loadingAction === 'blueprint'}
+            onClick={() => onAction('blueprint', spec.id)}
+          >
+            {loadingAction === 'blueprint' ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
+            Blueprint
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1 gap-1"
+            disabled={loadingAction === 'mock'}
+            onClick={() => onAction('mock', spec.id)}
+          >
+            {loadingAction === 'mock' ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Beaker className="h-4 w-4" />
+            )}
+            Mock
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1 gap-1"
+            disabled={loadingAction === 'tests'}
+            onClick={() => onAction('tests', spec.id)}
+          >
+            {loadingAction === 'tests' ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Database className="h-4 w-4" />
+            )}
+            Tests
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function SpecsPage() {
+  const searchParams = useSearchParams();
+  const projectFilter = searchParams.get('projectId') || undefined;
+  const utils = trpc.useUtils();
+  const { data: specs = [], isLoading } = trpc.spec.list.useQuery(
+    projectFilter ? { projectId: projectFilter } : { projectId: undefined }
+  );
+  const [url, setUrl] = useState('');
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [loadingAction, setLoadingAction] = useState<ActionKind | null>(null);
+
+  const loadSamples = trpc.spec.loadSamples.useMutation({
+    onSuccess: async () => {
+      await utils.spec.list.invalidate();
+      setActionMessage('Sample specs loaded successfully.');
+    },
+    onError: () => setActionMessage('Failed to load sample specs.'),
+  });
+
+  const importFromUrl = trpc.spec.importFromUrl.useMutation({
+    onSuccess: async () => {
+      await utils.spec.list.invalidate();
+      setUrl('');
+      setActionMessage('Spec imported and normalized.');
+      setLoadingAction(null);
+    },
+    onError: (error) => {
+      setActionMessage(error.message || 'Import failed.');
+      setLoadingAction(null);
+    },
+  });
+
+  const blueprint = trpc.spec.generateBlueprint.useMutation({
+    onSuccess: (result) => {
+      setActionMessage(result.success ? `Blueprint ready for ${result.spec.title}` : result.error || 'Blueprint failed');
+      setLoadingAction(null);
+    },
+    onError: () => {
+      setActionMessage('Blueprint generation failed.');
+      setLoadingAction(null);
+    },
+  });
+
+  const mock = trpc.spec.generateMock.useMutation({
+    onSuccess: (result) => {
+      setActionMessage(result.success ? `Mock created at ${result.mock.baseUrl}` : result.error || 'Mock generation failed');
+      setLoadingAction(null);
+    },
+    onError: () => {
+      setActionMessage('Mock generation failed.');
+      setLoadingAction(null);
+    },
+  });
+
+  const tests = trpc.spec.generateTests.useMutation({
+    onSuccess: (result) => {
+      setActionMessage(result.success ? `Golden tests created: ${result.tests.length} cases.` : result.error || 'Test generation failed');
+      setLoadingAction(null);
+    },
+    onError: () => {
+      setActionMessage('Test generation failed.');
+      setLoadingAction(null);
+    },
+  });
+
+  const handleAction = (kind: ActionKind, specId: string) => {
+    setActionMessage(null);
+    setLoadingAction(kind);
+    if (kind === 'blueprint') {
+      blueprint.mutate({ specId });
+      return;
+    }
+    if (kind === 'mock') {
+      mock.mutate({ specId });
+      return;
+    }
+    if (kind === 'tests') {
+      tests.mutate({ specId });
+      return;
+    }
+  };
+
+  const handleImport = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!url) return;
+    setLoadingAction('import');
+    importFromUrl.mutate({ projectId: projectFilter, url });
+  };
+
+  return (
+    <div className="space-y-10">
+      <Hero onLoadSamples={() => loadSamples.mutate({ projectId: projectFilter })} loadingSamples={loadSamples.isLoading} />
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2 bg-white/90 backdrop-blur">
+          <CardHeader>
+            <CardTitle className="text-gray-900">Import Spec</CardTitle>
+            <p className="text-sm text-gray-500">Paste an OpenAPI URL and we’ll ingest + normalize it.</p>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={handleImport}>
+              <input
+                type="url"
+                placeholder="https://example.com/openapi.yaml"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-gray-900 shadow-inner outline-none transition focus:border-blue-400"
+              />
+              <Button type="submit" disabled={!url || loadingAction === 'import'}>
+                {loadingAction === 'import' ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Importing…
+                  </>
+                ) : (
+                  'Import from URL'
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white/90 backdrop-blur">
+          <CardHeader>
+            <CardTitle className="text-gray-900">Status</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-gray-600">
+            <div className="rounded-2xl bg-gray-50 p-4 shadow-inner">
+              {actionMessage ? (
+                <p>{actionMessage}</p>
+              ) : (
+                <p>Trigger an action to see live status updates.</p>
+              )}
+            </div>
+            <p className="text-xs text-gray-400">
+              Every action stores normalized specs, mock configs, and golden tests in Prisma for downstream pages.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-semibold text-gray-900">Specs in Workspace</h2>
+          <Badge variant="outline">{specs.length} total</Badge>
+        </div>
+        {isLoading ? (
+          <div className="rounded-3xl border border-gray-100 bg-white/70 p-12 text-center text-gray-500 shadow-inner">
+            Fetching specs…
+          </div>
+        ) : specs.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-gray-200 p-12 text-center text-gray-500">
+            No specs yet. Import one or load the sample set above.
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {specs.map((spec) => (
+              <SpecCard key={spec.id} spec={spec as any} onAction={handleAction} loadingAction={loadingAction} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

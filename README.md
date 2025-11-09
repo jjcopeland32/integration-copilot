@@ -20,6 +20,7 @@
 - **Blueprint Generation** - Automated integration documentation
 - **Mock Server** - Realistic API mocking with latency simulation
 - **Golden Tests** - 10 comprehensive test suites (38 tests total)
+- **Project Lifecycle** - Create/delete projects, attach specs, and manage status
 - **Trace Validation** - Request/response validation and logging
 - **Plan Board** - 5-phase integration roadmap tracking
 - **Readiness Reports** - Go-live assessment with risk scoring
@@ -101,6 +102,14 @@ On the `/specs` page press **Load Sample Spec (Petstore)**. The Spec Engine inge
 1. Navigate to **Specs** page (`/specs`)
 2. Click "Load Sample Specs"
 3. See Stripe Payment API and Todo API
+
+### 1b. Manage Projects
+1. Visit **Projects** (`/projects`)
+2. Click **New Project** to open the modal (name, status, description)
+3. After creation, open the project card to:
+   - Import specs directly into that project via the inline modal
+   - Jump to `/specs?projectId=...` for advanced blueprint/mock/test flows
+   - Delete the project via the confirmation dialog when it’s no longer needed
 
 ### 2. Run Golden Tests
 1. Navigate to **Tests** page (`/tests`)
@@ -200,6 +209,17 @@ integration-copilot/
 - 5 CRUD endpoints
 - Simple REST API
 - Perfect for testing
+
+---
+
+## 🔮 Roadmap (Next Steps)
+
+1. **Project-Scoped Navigation** – persist the selected project across Specs, Mocks, Tests, Traces, and Reports so leads can stay inside a single integration until they switch projects.
+2. **Mocks & Tests Wiring** – replace the remaining demo data on `/mocks` and `/tests` with the live Prisma/tRPC data (start/stop mock instances, run suites from `/api/tests/run`, surface artifacts).
+3. **Telemetry & Reports** – connect `/api/trace`, Plan Board, and Readiness Reports to the new data so phases, risks, and traces reflect real runs.
+4. **Spec Automation** – enable SDK/webhook-driven spec ingestion so client APIs can auto-register/refresh their OpenAPI docs under the right project.
+
+These steps unlock true end-to-end testing once the current CRUD flows are in place.
 
 ---
 

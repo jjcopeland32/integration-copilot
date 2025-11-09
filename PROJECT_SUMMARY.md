@@ -385,6 +385,8 @@ pnpm build:all
 1. **Web App Build** - Requires additional UI implementation
 2. **Test Coverage** - Unit tests not yet implemented (structure ready)
 3. **API Documentation** - OpenAPI spec for tRPC routes (planned)
+4. **Project Context** - Global navigation doesn’t persist the selected project yet
+5. **Automated Spec Sync** - Specs must be imported manually per project (SDK/webhook sync TBD)
 
 ### Recommendations
 
@@ -393,6 +395,8 @@ pnpm build:all
 3. Add API documentation with tRPC OpenAPI
 4. Set up CI/CD pipeline
 5. Add monitoring (Sentry, DataDog)
+6. Implement project-scoped navigation for Specs/Mocks/Tests/Traces/Reports
+7. Add automated spec ingestion (SDK/webhook) to keep projects synchronized
 
 ---
 

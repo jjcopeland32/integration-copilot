@@ -134,11 +134,15 @@ export default function ProjectsPage() {
   const utils = trpc.useUtils();
   const [showDialog, setShowDialog] = useState(false);
   const [projectName, setProjectName] = useState('New Integration Project');
+  const [projectStatus, setProjectStatus] = useState<'DRAFT' | 'ACTIVE' | 'ARCHIVED'>('DRAFT');
+  const [projectDescription, setProjectDescription] = useState('Describe the integration goals, vendor, or scope.');
 
   const createProject = trpc.project.create.useMutation({
     onSuccess: async () => {
       await utils.project.list.invalidate();
       setProjectName('New Integration Project');
+      setProjectDescription('Describe the integration goals, vendor, or scope.');
+      setProjectStatus('DRAFT');
       setShowDialog(false);
     },
   });
@@ -210,7 +214,10 @@ export default function ProjectsPage() {
               className="space-y-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                createProject.mutate({ name: projectName });
+                createProject.mutate({
+                  name: projectName,
+                  status: projectStatus,
+                });
               }}
             >
               <div className="space-y-2">
@@ -222,6 +229,29 @@ export default function ProjectsPage() {
                   placeholder="Payments Baseline"
                 />
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-600">Status</label>
+                <select
+                  value={projectStatus}
+                  onChange={(e) => setProjectStatus(e.target.value as any)}
+                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-gray-900 shadow-inner outline-none transition focus:border-blue-400"
+                >
+                  <option value="DRAFT">Draft</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="ARCHIVED">Archived</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-600">Description</label>
+                <textarea
+                  value={projectDescription}
+                  onChange={(e) => setProjectDescription(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-gray-900 shadow-inner outline-none transition focus:border-blue-400"
+                />
+              </div>
+
               {createProject.error && (
                 <p className="rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-600">
                   {createProject.error.message}

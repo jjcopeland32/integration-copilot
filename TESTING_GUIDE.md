@@ -16,7 +16,9 @@ pnpm install
 pnpm dev
 ```
 
-Open http://localhost:3000 in your browser.
+Then open http://localhost:3000, go to `/login`, and sign in with the demo account:
+- **Email:** `demo@integration.local`
+- **Password:** `demo123`
 
 ---
 
@@ -39,12 +41,12 @@ Open http://localhost:3000 in your browser.
 ### 2. **Projects** (`/projects`)
 
 **What to see:**
-- Project cards with stats
-- Color-coded gradients
-- Status badges
+- Project cards with per-project stats (specs/mocks/tests)
+- Glassmorphism cards with gradients and status badges
 
 **Interactive elements:**
-- Click on a project card to view details
+- Click **New Project** to open the modal (name, status, description)
+- Click a project card to view details, import specs inline, or delete the project
 - Hover to see animations
 
 ---
@@ -54,9 +56,9 @@ Open http://localhost:3000 in your browser.
 **What you can test:**
 
 #### Load Sample Specs
-1. Click "Load Sample Specs" button
+1. Click "Load Sample Specs" button (optionally with `?projectId=...` in the URL)
 2. See confirmation that specs are loaded
-3. Two spec cards appear: Stripe Payment API and Todo API
+3. Two spec cards appear: Stripe Payment API and Todo API (scoped to the current project context)
 
 #### Generate Blueprint
 1. Click "Generate Blueprint" on any spec card

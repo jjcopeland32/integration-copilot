@@ -125,13 +125,15 @@ The app will redirect to the dashboard automatically.
 - Quick access to all features
 
 ### Projects
-- Create and manage integration projects
-- Track specs, mocks, and tests
-- Project status badges
+- Create, describe, and manage integration projects
+- Track specs, mocks, and tests per project
+- Inline delete confirmation with status badges & gradients
+- Project detail view offers spec import modal scoped to that project
 
 ### Spec Management
 - Import OpenAPI/AsyncAPI specs from URL or file
 - Generate customer-scoped blueprints
+- Project-aware imports via `/specs?projectId=...`
 - Export as Markdown + JSON
 
 ### Mock Service
@@ -162,6 +164,17 @@ The app will redirect to the dashboard automatically.
 - Risk assessment (Critical/High/Medium/Low)
 - Test pass rate metrics
 - E-signature support
+
+---
+
+## 🔮 Roadmap
+
+1. **Project context across workflows** – Keep the selected project active while navigating Specs, Mocks, Tests, Traces, and Reports so leaders stay scoped to a single integration until they switch.
+2. **Mocks & Tests data wiring** – Replace the placeholder cards with live Prisma data (start/stop mock instances, run suites via `/api/tests/run`, surface artifacts & collections).
+3. **Traces/Plan/Reports telemetry** – Bind the Plan board, traces view, and readiness reports to stored runs so risk and progress visuals update automatically.
+4. **Spec automation** – Allow SDKs/webhooks to push OpenAPI specs directly into a project to keep the workspace synced with client APIs.
+
+These steps complete the path to enterprise-grade, end-to-end coverage.
 
 ---
 
