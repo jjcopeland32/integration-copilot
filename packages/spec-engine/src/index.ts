@@ -46,3 +46,13 @@ export function generateBlueprint(model: NormalizedModel): { markdown: string; j
   const json = model;
   return { markdown, json };
 }
+
+export { SpecNormalizer, createNormalizer } from './normalizer';
+export type {
+  NormalizedSpec,
+  NormalizedEndpoint,
+  NormalizedParameter,
+  NormalizedRequestBody,
+  NormalizedResponse,
+  SecurityRequirement,
+} from './types';

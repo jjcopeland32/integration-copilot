@@ -8,3 +8,4 @@ dist
 .artifacts
 .cache
 .DS_Store
+*.tsbuildinfo

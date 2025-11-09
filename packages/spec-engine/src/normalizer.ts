@@ -1,5 +1,6 @@
 import { OpenAPIV3 } from 'openapi-types';
 import axios from 'axios';
+import { createHash } from 'crypto';
 import {
   NormalizedSpec,
   NormalizedEndpoint,
@@ -7,19 +8,49 @@ import {
   SecurityRequirement,
 } from './types';
 
+interface CacheEntry {
+  value: NormalizedSpec;
+  expiresAt: number;
+}
+
+export interface SpecNormalizerOptions {
+  cacheSize?: number;
+  ttlMs?: number;
+}
+
 export class SpecNormalizer {
+  private cache = new Map<string, CacheEntry>();
+  private cacheSize: number;
+  private ttlMs: number;
+
+  constructor(options: SpecNormalizerOptions = {}) {
+    this.cacheSize = Math.max(1, options.cacheSize ?? 8);
+    this.ttlMs = options.ttlMs ?? 5 * 60 * 1000;
+  }
+
   async normalizeFromURL(url: string): Promise<NormalizedSpec> {
     const response = await axios.get(url);
     const api = response.data as OpenAPIV3.Document;
-    return this.normalize(api);
+    return this.normalizeWithCache(`url:${url}`, api);
   }
 
   async normalizeFromObject(spec: any): Promise<NormalizedSpec> {
     const api = spec as OpenAPIV3.Document;
-    return this.normalize(api);
+    return this.normalizeWithCache(`object:${this.hashSpec(spec)}`, api);
   }
 
-  private normalize(api: OpenAPIV3.Document): NormalizedSpec {
+  private normalizeWithCache(seed: string, api: OpenAPIV3.Document): NormalizedSpec {
+    const cacheKey = this.createCacheKey(seed, api);
+    const cached = this.readFromCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
+    const normalized = this.normalizeDocument(api);
+    this.writeToCache(cacheKey, normalized);
+    return normalized;
+  }
+
+  private normalizeDocument(api: OpenAPIV3.Document): NormalizedSpec {
     const endpoints: NormalizedEndpoint[] = [];
     const webhooks: Record<string, NormalizedEndpoint> = {};
 
@@ -56,7 +87,7 @@ export class SpecNormalizer {
       }
     }
 
-    return {
+    const normalized: NormalizedSpec = {
       title: api.info.title,
       version: api.info.version,
       description: api.info.description,
@@ -69,6 +100,7 @@ export class SpecNormalizer {
       webhooks: Object.keys(webhooks).length > 0 ? webhooks : undefined,
       schemas: api.components?.schemas || {},
     };
+    return normalized;
   }
 
   private normalizeOperation(
@@ -153,8 +185,55 @@ export class SpecNormalizer {
     }
     return requirements;
   }
+
+  private createCacheKey(seed: string, api: OpenAPIV3.Document): string {
+    return createHash('sha256')
+      .update(seed)
+      .update(JSON.stringify(api))
+      .digest('hex');
+  }
+
+  private readFromCache(key: string): NormalizedSpec | null {
+    const entry = this.cache.get(key);
+    if (!entry) {
+      return null;
+    }
+    if (entry.expiresAt < Date.now()) {
+      this.cache.delete(key);
+      return null;
+    }
+    // refresh LRU ordering
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+    return entry.value;
+  }
+
+  private writeToCache(key: string, value: NormalizedSpec) {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+    this.cache.set(key, {
+      value,
+      expiresAt: Date.now() + this.ttlMs,
+    });
+    if (this.cache.size > this.cacheSize) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest) {
+        this.cache.delete(oldest);
+      }
+    }
+  }
+
+  private hashSpec(spec: unknown): string {
+    if (typeof spec === 'string') return spec;
+    try {
+      return JSON.stringify(spec);
+    } catch {
+      return Math.random().toString(36);
+    }
+  }
 }
 
-export function createNormalizer(): SpecNormalizer {
-  return new SpecNormalizer();
+export function createNormalizer(options?: SpecNormalizerOptions): SpecNormalizer {
+  return new SpecNormalizer(options);
 }

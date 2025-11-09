@@ -1,194 +1,276 @@
 import { router, publicProcedure } from '../server';
 import { z } from 'zod';
-import { specStore, mockStore, testStore } from '../../demo-store';
+import yaml from 'js-yaml';
+import { SpecNormalizer, type NormalizedSpec } from '@integration-copilot/spec-engine';
+import { MockGenerator, GoldenTestGenerator } from '@integration-copilot/mockgen';
 import { sampleSpecs } from '../../sample-specs';
-import { SpecNormalizer } from '@integration-copilot/spec-engine';
-import { MockGenerator } from '@integration-copilot/mockgen';
+import { ensureProjectForSpec, resolveProject } from '../../workspace';
+import { MockStatus, SpecKind } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
+
+const normalizer = new SpecNormalizer();
+const mockGenerator = new MockGenerator();
+const goldenTestGenerator = new GoldenTestGenerator();
+
+async function normalizeSpec(content: any): Promise<NormalizedSpec> {
+  return normalizer.normalizeFromObject(content);
+}
+
+async function ensureNormalizedSpec(prisma: PrismaClient, specId: string): Promise<NormalizedSpec> {
+  const spec = await prisma.spec.findUnique({ where: { id: specId } });
+  if (!spec) throw new Error('Spec not found');
+
+  if (spec.normalized) {
+    return spec.normalized as NormalizedSpec;
+  }
+
+  if (!spec.raw) {
+    throw new Error('Spec lacks raw content for normalization');
+  }
+
+  const normalized = await normalizeSpec(spec.raw);
+  await prisma.spec.update({
+    where: { id: specId },
+    data: { normalized },
+  });
+  return normalized;
+}
+
+function buildBlueprintMarkdown(spec: NormalizedSpec): string {
+  const lines: string[] = [];
+  lines.push(`# ${spec.title ?? 'API'} Integration Blueprint`);
+  lines.push('');
+  lines.push(`**Version:** ${spec.version ?? '1.0.0'}`);
+  if (spec.description) {
+    lines.push('');
+    lines.push(spec.description);
+  }
+  lines.push('');
+  lines.push(`## Endpoints (${spec.endpoints.length})`);
+  lines.push('');
+  for (const endpoint of spec.endpoints.slice(0, 50)) {
+    lines.push(`- **${endpoint.method} ${endpoint.path}** ${endpoint.summary ?? ''}`);
+  }
+  return lines.join('\n');
+}
+
+async function parseSpecPayload(payload: any) {
+  if (typeof payload === 'string') {
+    const trimmed = payload.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      return JSON.parse(trimmed);
+    }
+    return yaml.load(trimmed);
+  }
+  return payload;
+}
+
+function extractSpecName(payload: any, fallback = 'Imported Spec') {
+  if (payload && typeof payload === 'object' && 'info' in payload) {
+    const title = (payload as any).info?.title;
+    if (typeof title === 'string' && title.length > 0) {
+      return title;
+    }
+  }
+  return fallback;
+}
 
 export const specRouter = router({
-  // List all specs
   list: publicProcedure
-    .input(z.object({ projectId: z.string().optional() }))
-    .query(({ input }) => {
-      if (input.projectId) {
-        return specStore.getByProjectId(input.projectId);
-      }
-      return specStore.getAll();
+    .input(z.object({ projectId: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const project = await resolveProject(ctx.prisma, {
+        projectId: input?.projectId,
+        userId: ctx.userId,
+        orgId: ctx.orgId,
+      });
+
+      return ctx.prisma.spec.findMany({
+        where: { projectId: project.id },
+        orderBy: { createdAt: 'desc' },
+      });
     }),
 
-  // Get spec by ID
   get: publicProcedure
     .input(z.object({ id: z.string() }))
-    .query(({ input }) => {
-      return specStore.getById(input.id);
+    .query(({ ctx, input }) => {
+      return ctx.prisma.spec.findUnique({
+        where: { id: input.id },
+      });
     }),
 
-  // Import spec from URL or content
   importFromUrl: publicProcedure
-    .input(z.object({
-      projectId: z.string(),
-      url: z.string().url(),
-    }))
-    .mutation(async ({ input }) => {
-      const { projectId, url } = input;
-      
-      // For demo, use sample specs
-      const name = url.includes('stripe') ? 'Stripe Payment API' : 'Todo API';
-      const content = url.includes('stripe') ? sampleSpecs.stripe : sampleSpecs.todo;
-
-      const spec = specStore.create({
-        projectId,
-        name,
-        type: 'OPENAPI',
-        url,
-        content,
+    .input(
+      z.object({
+        projectId: z.string().optional(),
+        url: z.string().url(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await ensureProjectForSpec(ctx.prisma, input.projectId, {
+        userId: ctx.userId,
+        orgId: ctx.orgId,
       });
 
-      return spec;
-    }),
-
-  // Import from object
-  importFromObject: publicProcedure
-    .input(z.object({
-      projectId: z.string(),
-      spec: z.any(),
-    }))
-    .mutation(async ({ input }) => {
-      const spec = specStore.create({
-        projectId: input.projectId,
-        name: input.spec.info?.title || 'Imported Spec',
-        type: 'OPENAPI',
-        content: input.spec,
-      });
-
-      return spec;
-    }),
-
-  // Generate blueprint from spec
-  generateBlueprint: publicProcedure
-    .input(z.object({ 
-      specId: z.string(),
-      config: z.object({
-        customerScope: z.object({
-          includedEndpoints: z.array(z.string()).optional(),
-          excludedEndpoints: z.array(z.string()).optional(),
-        }).optional(),
-        webhooks: z.object({
-          enabled: z.boolean(),
-          endpoints: z.array(z.string()).optional(),
-        }).optional(),
-      }).optional(),
-    }))
-    .mutation(async ({ input }) => {
-      const spec = specStore.getById(input.specId);
-      if (!spec) throw new Error('Spec not found');
-
-      try {
-        const normalizer = new SpecNormalizer();
-        const normalized = await normalizer.normalize(spec.content);
-        
-        return {
-          success: true,
-          endpoints: normalized.paths?.length || 0,
-          operations: Object.keys(normalized.paths || {}).length,
-          blueprint: normalized,
-          markdown: `# API Blueprint: ${spec.name}\n\nGenerated from OpenAPI specification.`,
-        };
-      } catch (error: any) {
-        return {
-          success: false,
-          error: error.message,
-        };
+      const response = await fetch(input.url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch spec from ${input.url}`);
       }
+      const rawText = await response.text();
+      const parsed = await parseSpecPayload(rawText);
+      const normalized = await normalizeSpec(parsed);
+      const specName = extractSpecName(parsed, input.url);
+
+      return ctx.prisma.spec.create({
+        data: {
+          projectId: project.id,
+          name: specName,
+          kind: SpecKind.OPENAPI,
+          version: normalized.version ?? '1.0.0',
+          rawUrl: input.url,
+          raw: parsed,
+          normalized,
+        },
+      });
     }),
 
-  // Generate mock from spec
+  importFromObject: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string().optional(),
+        spec: z.any(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await ensureProjectForSpec(ctx.prisma, input.projectId, {
+        userId: ctx.userId,
+        orgId: ctx.orgId,
+      });
+
+      const parsed = await parseSpecPayload(input.spec);
+      const normalized = await normalizeSpec(parsed);
+      const specName = extractSpecName(parsed);
+
+      return ctx.prisma.spec.create({
+        data: {
+          projectId: project.id,
+          name: specName,
+          kind: SpecKind.OPENAPI,
+          version: normalized.version ?? '1.0.0',
+          raw: parsed,
+          normalized,
+        },
+      });
+    }),
+
+  generateBlueprint: publicProcedure
+    .input(
+      z.object({
+        specId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const normalized = await ensureNormalizedSpec(ctx.prisma, input.specId);
+      return {
+        success: true,
+        endpoints: normalized.endpoints.length,
+        markdown: buildBlueprintMarkdown(normalized),
+        spec: normalized,
+      };
+    }),
+
   generateMock: publicProcedure
     .input(z.object({ specId: z.string() }))
-    .mutation(async ({ input }) => {
-      const spec = specStore.getById(input.specId);
-      if (!spec) throw new Error('Spec not found');
+    .mutation(async ({ ctx, input }) => {
+      const specRecord = await ctx.prisma.spec.findUnique({
+        where: { id: input.specId },
+      });
+      if (!specRecord) throw new Error('Spec not found');
 
-      try {
-        const generator = new MockGenerator();
-        const mockConfig = generator.generateFromSpec(spec.content);
+      const normalized = await ensureNormalizedSpec(ctx.prisma, input.specId);
+      const mockCount = await ctx.prisma.mockInstance.count({
+        where: { projectId: specRecord.projectId },
+      });
+      const port = 3001 + mockCount;
+      const baseUrl = `http://localhost:${port}`;
+      const { routes, postmanCollection } = mockGenerator.generate(normalized, {
+        baseUrl,
+        enableLatency: true,
+        latencyMs: 50,
+      });
 
-        // Create mock instance
-        const mock = mockStore.create({
-          projectId: spec.projectId,
-          specId: spec.id,
-          name: `${spec.name} Mock`,
-          status: 'STOPPED',
-          port: 3001 + mockStore.getAll().length,
-          requests: 0,
-        });
+      const mock = await ctx.prisma.mockInstance.create({
+        data: {
+          projectId: specRecord.projectId,
+          baseUrl,
+          status: MockStatus.STOPPED,
+          config: {
+            routes,
+            postmanCollection,
+          },
+        },
+      });
 
-        return {
-          success: true,
-          mock,
-          config: mockConfig,
-        };
-      } catch (error: any) {
-        return {
-          success: false,
-          error: error.message,
-        };
-      }
+      return {
+        success: true,
+        mock,
+        routes,
+      };
     }),
 
-  // Generate tests from spec
   generateTests: publicProcedure
     .input(z.object({ specId: z.string() }))
-    .mutation(async ({ input }) => {
-      const spec = specStore.getById(input.specId);
+    .mutation(async ({ ctx, input }) => {
+      const spec = await ctx.prisma.spec.findUnique({
+        where: { id: input.specId },
+      });
       if (!spec) throw new Error('Spec not found');
 
-      try {
-        const generator = new MockGenerator();
-        const tests = generator.generateGoldenTests(spec.content);
+      const normalized = await ensureNormalizedSpec(ctx.prisma, input.specId);
+      const baseUrl = process.env.APP_URL ?? 'http://localhost:3000';
+      const tests = goldenTestGenerator.generate(normalized, baseUrl);
+      const suiteName = `${extractSpecName(spec.raw, 'Integration')} Golden Tests`;
 
-        // Create test suite
-        const testSuite = testStore.create({
+      const testSuite = await ctx.prisma.testSuite.create({
+        data: {
           projectId: spec.projectId,
-          name: `${spec.name} Golden Tests`,
-          status: 'PENDING',
-          passed: 0,
-          failed: 0,
-          total: tests.length,
-        });
+          name: suiteName,
+          version: normalized.version ?? '1.0.0',
+          cases: tests,
+        },
+      });
 
-        return {
-          success: true,
-          testSuite,
-          tests,
-        };
-      } catch (error: any) {
-        return {
-          success: false,
-          error: error.message,
-        };
-      }
+      return {
+        success: true,
+        testSuite,
+        tests,
+      };
     }),
 
-  // Load sample specs
   loadSamples: publicProcedure
-    .input(z.object({ projectId: z.string() }))
-    .mutation(({ input }) => {
-      const specs = [
-        specStore.create({
-          projectId: input.projectId,
-          name: 'Stripe Payment API',
-          type: 'OPENAPI',
-          content: sampleSpecs.stripe,
-        }),
-        specStore.create({
-          projectId: input.projectId,
-          name: 'Todo API',
-          type: 'OPENAPI',
-          content: sampleSpecs.todo,
-        }),
-      ];
+    .input(z.object({ projectId: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await ensureProjectForSpec(ctx.prisma, input.projectId, {
+        userId: ctx.userId,
+        orgId: ctx.orgId,
+      });
 
+      const specs = [];
+      for (const specDoc of [sampleSpecs.stripe, sampleSpecs.todo]) {
+        const normalized = await normalizeSpec(specDoc);
+        const name = extractSpecName(specDoc, specDoc?.info?.title ?? 'Sample Spec');
+        const spec = await ctx.prisma.spec.create({
+          data: {
+            projectId: project.id,
+            name,
+            kind: SpecKind.OPENAPI,
+            version: normalized.version ?? '1.0.0',
+            raw: specDoc,
+            normalized,
+          },
+        });
+        specs.push(spec);
+      }
       return specs;
     }),
 });

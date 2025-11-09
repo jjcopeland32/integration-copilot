@@ -265,14 +265,14 @@ Key metrics to monitor:
 
 **Issue:** `Cannot find module '@integration-copilot/spec-engine'`
 
-**Solution:** Build packages in dependency order:
+**Solution:** The workspace bootstrapper now builds any missing package output automatically. It runs as part of `pnpm install`/`pnpm dev`, but you can trigger it manually:
 ```bash
-pnpm build:packages
+pnpm ensure:workspace
 ```
 
 **Issue:** Prisma client not generated
 
-**Solution:**
+**Solution:** Prisma generation is now baked into the workspace bootstrap/build scripts. If you need to re-run it explicitly:
 ```bash
 pnpm prisma:generate
 ```
@@ -281,23 +281,20 @@ pnpm prisma:generate
 
 **Issue:** Database connection failed
 
-**Solution:** Check `DATABASE_URL` in `.env` and ensure PostgreSQL is running
+**Solution:** `.env` now ships with a local Postgres configuration and `pnpm dev` ensures the dockerized database is running (`pnpm ensure:workspace --with-db`). If it is stopped, bring it back with:
+```bash
+docker compose up -d db
+```
 
 **Issue:** Mock server not starting
 
-**Solution:** Check port 3001 is available:
-```bash
-lsof -i :3001
-```
+**Solution:** The mock server now auto-selects the next available port if 3001 is busy and logs the actual port that was used.
 
 ### Performance Issues
 
 **Issue:** Slow spec processing
 
-**Solution:** 
-- Enable caching for spec normalization
-- Use Redis for distributed caching
-- Increase Node.js memory: `NODE_OPTIONS=--max-old-space-size=4096`
+**Solution:** Spec normalization now includes an in-memory LRU cache (5-minute TTL by default). No additional action is required, but you can tune it via `new SpecNormalizer({ cacheSize, ttlMs })` if needed.
 
 ## Backup & Recovery
 

@@ -1,32 +1,47 @@
 import { router, publicProcedure } from '../server';
 import { z } from 'zod';
-import { mockStore } from '../../demo-store';
+import { resolveProject } from '../../workspace';
+import { MockStatus } from '@prisma/client';
 
 export const mockRouter = router({
   list: publicProcedure
-    .input(z.object({ projectId: z.string().optional() }))
-    .query(({ input }) => {
-      if (input.projectId) {
-        return mockStore.getByProjectId(input.projectId);
-      }
-      return mockStore.getAll();
+    .input(z.object({ projectId: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const project = await resolveProject(ctx.prisma, {
+        projectId: input?.projectId,
+        userId: ctx.userId,
+        orgId: ctx.orgId,
+      });
+
+      return ctx.prisma.mockInstance.findMany({
+        where: { projectId: project.id },
+        orderBy: { createdAt: 'desc' },
+      });
     }),
 
   get: publicProcedure
     .input(z.object({ id: z.string() }))
-    .query(({ input }) => {
-      return mockStore.getById(input.id);
+    .query(({ ctx, input }) => {
+      return ctx.prisma.mockInstance.findUnique({
+        where: { id: input.id },
+      });
     }),
 
   start: publicProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(({ input }) => {
-      return mockStore.updateStatus(input.id, 'RUNNING');
+    .mutation(({ ctx, input }) => {
+      return ctx.prisma.mockInstance.update({
+        where: { id: input.id },
+        data: { status: MockStatus.RUNNING },
+      });
     }),
 
   stop: publicProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(({ input }) => {
-      return mockStore.updateStatus(input.id, 'STOPPED');
+    .mutation(({ ctx, input }) => {
+      return ctx.prisma.mockInstance.update({
+        where: { id: input.id },
+        data: { status: MockStatus.STOPPED },
+      });
     }),
 });

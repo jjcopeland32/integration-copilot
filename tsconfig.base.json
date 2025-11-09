@@ -13,7 +13,8 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./apps/web/*"]
+      "@/*": ["./apps/web/*"],
+      "@integration-copilot/*": ["./packages/*/src"]
     }
   }
 }

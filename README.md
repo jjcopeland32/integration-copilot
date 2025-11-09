@@ -47,14 +47,18 @@
 git clone https://github.com/jjcopeland32/integration-copilot.git
 cd integration-copilot
 
-# Install dependencies
+# Install dependencies (runs workspace bootstrap)
 pnpm install
 
-# Build core packages
-pnpm build:packages
+# Ensure packages, Prisma client, and local Postgres are ready (optional but handy)
+pnpm ensure:workspace --with-db
 
-# Start development server
+# Start development server (prompts for demo login)
 pnpm dev
+
+# In another terminal, sign in at http://localhost:3000 with:
+# Email: demo@integration.local
+# Password: demo123
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.

@@ -41,23 +41,21 @@ A **complete, production-ready AI-powered API vendor onboarding system** with:
 tar -xzf integration-copilot-complete.tar.gz
 cd integration-copilot
 
-# Install dependencies
+# Install dependencies (runs workspace bootstrap)
 pnpm install
+
+# Optionally ensure everything (packages/Prisma/db) is ready
+pnpm ensure:workspace --with-db
 ```
 
 ### 2. Setup Database
 
 ```bash
-# Copy environment template
-cp .env.example .env
+# .env ships with a localhost Postgres URL. Start the dockerized database:
+docker compose up -d db
 
-# Edit .env with your database URL
-# DATABASE_URL=postgresql://user:password@localhost:5432/integration_copilot
-
-# Generate Prisma client
+# (Optional) re-run Prisma client or migrations if you change the schema
 pnpm prisma:generate
-
-# Run migrations
 pnpm -C apps/web prisma migrate dev --name init
 ```
 
@@ -76,6 +74,10 @@ pnpm -C apps/web build
 ```bash
 # Development mode
 pnpm dev
+
+# Sign in at http://localhost:3000 with:
+# Email: demo@integration.local
+# Password: demo123
 
 # Production mode
 pnpm -C apps/web start
@@ -401,22 +403,18 @@ pnpm dev
 
 **Issue:** `Cannot find module '@integration-copilot/...'`
 
-**Solution:** Build packages in order:
+**Solution:** Run the workspace bootstrapper (it also runs automatically on install/dev):
 ```bash
-pnpm build:packages
+pnpm ensure:workspace
 ```
 
 ### Database Connection Error
 
 **Issue:** `Can't reach database server`
 
-**Solution:** Check DATABASE_URL in `.env`:
+**Solution:** The local Postgres container is now started automatically via `pnpm ensure:workspace --with-db` / `pnpm dev`. To restart it manually:
 ```bash
-# Make sure PostgreSQL is running
-pg_isready
-
-# Test connection
-psql $DATABASE_URL
+docker compose up -d db
 ```
 
 ### Port Already in Use

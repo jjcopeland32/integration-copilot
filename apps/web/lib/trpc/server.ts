@@ -2,6 +2,7 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import type { PrismaClient } from '@prisma/client';
 import superjson from 'superjson';
 import { prisma } from '../prisma';
+import { auth } from '../auth';
 
 export interface Context {
   prisma: PrismaClient;
@@ -10,9 +11,13 @@ export interface Context {
 }
 
 export const createContext = async (): Promise<Context> => {
-  // TODO: Get userId and orgId from session
+  const session = await auth();
+  const userId = session?.user?.id;
+  const orgId = session?.user?.orgId;
   return {
     prisma,
+    userId: userId ?? undefined,
+    orgId: orgId ?? undefined,
   };
 };
 

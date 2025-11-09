@@ -78,6 +78,7 @@ model Spec {
   id         String    @id @default(cuid())
   project    Project   @relation(fields: [projectId], references: [id])
   projectId  String
+  name       String
   kind       SpecKind
   version    String
   rawUrl     String?
