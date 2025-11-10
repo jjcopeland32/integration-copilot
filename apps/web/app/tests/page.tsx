@@ -27,15 +27,8 @@ export default function TestsPage() {
     [suites]
   );
 
-  const runMutation = trpc.tests.run.useMutation({
-    onSuccess: async () => {
-      if (projectId) {
-        await utils.project.get.invalidate({ id: projectId });
-      }
-    },
-  });
-
   const [runningSuite, setRunningSuite] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   if (!projectId) {
     return (
@@ -54,8 +47,25 @@ export default function TestsPage() {
 
   const handleRunSuite = async (suiteId: string) => {
     setRunningSuite(suiteId);
-    await runMutation.mutateAsync({ suiteId });
-    setRunningSuite(null);
+    setError(null);
+    try {
+      const res = await fetch('/api/tests/run', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ suiteId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || 'Unable to run suite');
+      }
+      if (projectId) {
+        await utils.project.get.invalidate({ id: projectId });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to run suite');
+    } finally {
+      setRunningSuite(null);
+    }
   };
 
   const handleRunAll = async () => {
@@ -79,13 +89,18 @@ export default function TestsPage() {
           variant="gradient"
           className="gap-2"
           onClick={handleRunAll}
-          disabled={runningSuite !== null || suites.length === 0 || runMutation.isLoading}
+          disabled={runningSuite !== null || suites.length === 0}
         >
           {runningSuite ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-5 w-5" />}
           Run All Tests
         </Button>
       </div>
 
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
+          {error}
+        </div>
+      )}
       {suites.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
           <p className="text-gray-600">No suites yet. Generate tests from the Specs page for this project.</p>
@@ -154,7 +169,7 @@ export default function TestsPage() {
                     className="w-full"
                     variant={latestRun ? 'outline' : 'default'}
                     onClick={() => handleRunSuite(suite.id)}
-                    disabled={isRunning || runMutation.isLoading}
+                    disabled={isRunning}
                   >
                     {isRunning ? (
                       <>

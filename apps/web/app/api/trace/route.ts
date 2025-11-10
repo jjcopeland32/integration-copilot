@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { RBACError, requireRole } from '@/lib/rbac';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,11 +91,28 @@ export async function POST(req: NextRequest) {
   }
 
   const fields = new Set(getRedactionList());
-  const sanitized = redactValue(payload as Redactable, fields);
+  const sanitized = redactValue(payload as Redactable, fields) as TracePayload;
 
-  console.log('TRACE', { payload: sanitized });
+  if (!sanitized.projectId || !sanitized.requestMeta || !sanitized.responseMeta || !sanitized.verdict) {
+    return NextResponse.json(
+      { ok: false, error: 'payload must include projectId, requestMeta, responseMeta, verdict' },
+      { status: 400 }
+    );
+  }
 
-  return NextResponse.json({ ok: true });
+  const traceRecord = await prisma.trace.create({
+    data: {
+      projectId: sanitized.projectId,
+      requestMeta: sanitized.requestMeta,
+      responseMeta: sanitized.responseMeta,
+      verdict: sanitized.verdict,
+      redaction: {
+        fields: Array.from(fields),
+      },
+    },
+  });
+
+  return NextResponse.json({ ok: true, id: traceRecord.id });
 }
 
 export async function GET() {

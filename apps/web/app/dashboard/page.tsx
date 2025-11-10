@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileCode, Server, TestTube, Activity, TrendingUp, Clock, CheckCircle2, Zap } from 'lucide-react';
+import { FileCode, Server, TestTube, Activity, TrendingUp, Clock, Zap } from 'lucide-react';
 import { useProjectContext } from '@/components/project-context';
+import { trpc } from '@/lib/trpc/client';
 
 export default function DashboardPage() {
   const { projectId, projectName } = useProjectContext();
@@ -21,85 +22,80 @@ export default function DashboardPage() {
     );
   }
 
+  const projectQuery = trpc.project.get.useQuery({ id: projectId });
+  const project = projectQuery.data;
+
+  if (projectQuery.isLoading || !project) {
+    return (
+      <div className="rounded-3xl border border-gray-100 bg-white/70 p-12 text-center text-gray-500 shadow-inner">
+        Loading project metrics…
+      </div>
+    );
+  }
+
+  const specCount = project.specs.length;
+  const mockCount = project.mocks.length;
+  const runningMocks = project.mocks.filter((mock: any) => mock.status === 'RUNNING').length;
+  const suiteCount = project.suites.length;
+  const totalCases = project.suites.reduce((sum: number, suite: any) => {
+    const cases = Array.isArray(suite.cases as unknown[]) ? (suite.cases as unknown[]).length : 0;
+    return sum + cases;
+  }, 0);
+  const totalPassed = project.suites.reduce((sum: number, suite: any) => {
+    const latestRun = suite.runs?.[0] as { results?: Record<string, any> } | undefined;
+    const passedValue = latestRun?.results?.passed;
+    return sum + (typeof passedValue === 'number' ? passedValue : 0);
+  }, 0);
+  const passRate = totalCases > 0 ? Math.round((totalPassed / totalCases) * 100) : 0;
+  const traceCount = project.traces.length;
+  const recentTraces = project.traces.slice(0, 4);
+
   const stats = [
     {
-      title: 'Active Projects',
-      value: '12',
-      change: '+3 this month',
+      title: 'Specs',
+      value: specCount,
+      change: `${suiteCount} suites`,
       icon: FileCode,
       gradient: 'from-blue-500 to-cyan-500',
       bgGradient: 'from-blue-50 to-cyan-50',
     },
     {
-      title: 'Mock Services',
-      value: '8',
-      change: '2 running',
+      title: 'Mocks',
+      value: mockCount,
+      change: `${runningMocks} running`,
       icon: Server,
       gradient: 'from-green-500 to-emerald-500',
       bgGradient: 'from-green-50 to-emerald-50',
     },
     {
-      title: 'Test Suites',
-      value: '45',
-      change: '98% pass rate',
+      title: 'Tests',
+      value: suiteCount,
+      change: `${passRate}% pass rate`,
       icon: TestTube,
       gradient: 'from-purple-500 to-pink-500',
       bgGradient: 'from-purple-50 to-pink-50',
     },
     {
-      title: 'Traces Today',
-      value: '1,234',
-      change: '+12% vs yesterday',
+      title: 'Traces',
+      value: traceCount,
+      change: project.traces.length > 0 ? 'Latest telemetry available' : 'No traces yet',
       icon: Activity,
       gradient: 'from-orange-500 to-red-500',
       bgGradient: 'from-orange-50 to-red-50',
     },
   ];
 
-  const recentActivity = [
-    {
-      project: 'Stripe Payment Integration',
-      action: 'Mock service started',
-      time: '2 minutes ago',
-      icon: Server,
-      status: 'success',
-    },
-    {
-      project: 'PayPal Checkout',
-      action: 'Test suite completed',
-      time: '15 minutes ago',
-      icon: CheckCircle2,
-      status: 'success',
-    },
-    {
-      project: 'Twilio SMS API',
-      action: 'Spec imported',
-      time: '1 hour ago',
-      icon: Zap,
-      status: 'info',
-    },
-    {
-      project: 'Shopify Orders',
-      action: 'Blueprint generated',
-      time: '2 hours ago',
-      icon: FileCode,
-      status: 'info',
-    },
-  ];
-
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="animate-in">
         <h1 className="text-4xl font-bold gradient-text mb-2">
-          {projectName ? `${projectName} overview` : 'Welcome back! 👋'}
+          {projectName ? `${projectName} overview` : 'Project overview'}
         </h1>
         <p className="text-lg text-gray-600">
-          Here's what's happening with your selected integration today.
+          Live metrics for specs, mocks, tests, and telemetry.
         </p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, index) => (
           <Card
@@ -128,44 +124,43 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Recent Activity */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Activity Feed */}
         <Card className="animate-in" style={{ animationDelay: '400ms' }}>
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500">
                 <Clock className="h-5 w-5 text-white" />
               </div>
-              <CardTitle className="text-xl">Recent Activity</CardTitle>
+              <CardTitle className="text-xl">Recent Traces</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
-                <div
-                  key={index}
-                  className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-r from-gray-50 to-blue-50 hover:shadow-md transition-all duration-300 group"
-                >
-                  <div className={`p-2 rounded-lg ${
-                    activity.status === 'success' 
-                      ? 'bg-gradient-to-br from-green-500 to-emerald-500' 
-                      : 'bg-gradient-to-br from-blue-500 to-indigo-500'
-                  } group-hover:scale-110 transition-transform`}>
-                    <activity.icon className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 truncate">{activity.project}</p>
-                    <p className="text-sm text-gray-600">{activity.action}</p>
-                    <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {recentTraces.length === 0 ? (
+              <p className="text-sm text-gray-500">No telemetry yet. Post to /api/trace to see live activity.</p>
+            ) : (
+              <div className="space-y-3">
+                {recentTraces.map((trace: any) => {
+                  const verdict = (trace.verdict ?? '').toUpperCase();
+                  const method = trace.requestMeta?.method ?? 'POST';
+                  const path = trace.requestMeta?.path ?? '/';
+                  const timestamp = trace.createdAt
+                    ? new Date(trace.createdAt).toLocaleString()
+                    : trace.requestMeta?.timestamp ?? '—';
+                  return (
+                    <div key={trace.id} className="flex items-start gap-4 rounded-xl bg-gradient-to-r from-gray-50 to-blue-50 p-4">
+                      <Badge variant={verdict === 'PASS' ? 'success' : 'error'}>{verdict || 'UNKNOWN'}</Badge>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-900">{method} {path}</p>
+                        <p className="text-xs text-gray-500">{timestamp}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Quick Actions */}
         <Card className="animate-in" style={{ animationDelay: '500ms' }}>
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -178,56 +173,23 @@ export default function DashboardPage() {
           <CardContent>
             <div className="space-y-3">
               {[
-                { label: 'Import New Spec', gradient: 'from-blue-500 to-cyan-500', icon: FileCode },
-                { label: 'Start Mock Service', gradient: 'from-green-500 to-emerald-500', icon: Server },
-                { label: 'Run Test Suite', gradient: 'from-purple-500 to-pink-500', icon: TestTube },
-                { label: 'View Traces', gradient: 'from-orange-500 to-red-500', icon: Activity },
-              ].map((action, index) => (
-                <button
+                { label: 'Manage Specs', gradient: 'from-blue-500 to-cyan-500', href: '/specs' },
+                { label: 'Manage Mocks', gradient: 'from-green-500 to-emerald-500', href: '/mocks' },
+                { label: 'Run Tests', gradient: 'from-purple-500 to-pink-500', href: '/tests' },
+                { label: 'View Traces', gradient: 'from-orange-500 to-red-500', href: '/traces' },
+              ].map((action) => (
+                <Link
+                  href={action.href}
                   key={action.label}
-                  className={`w-full flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r ${action.gradient} text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group`}
+                  className={`block w-full rounded-xl bg-gradient-to-r ${action.gradient} p-4 text-white shadow-lg transition hover:shadow-xl`}
                 >
-                  <div className="p-2 rounded-lg bg-white/20 group-hover:bg-white/30 transition-colors">
-                    <action.icon className="h-5 w-5" />
-                  </div>
-                  <span className="font-semibold">{action.label}</span>
-                </button>
+                  {action.label}
+                </Link>
               ))}
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Integration Health */}
-      <Card className="animate-in" style={{ animationDelay: '600ms' }}>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500">
-                <CheckCircle2 className="h-5 w-5 text-white" />
-              </div>
-              <CardTitle className="text-xl">Integration Health</CardTitle>
-            </div>
-            <Badge variant="success">All Systems Operational</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            {[
-              { label: 'API Uptime', value: '99.9%', color: 'from-green-500 to-emerald-500' },
-              { label: 'Avg Response Time', value: '127ms', color: 'from-blue-500 to-cyan-500' },
-              { label: 'Error Rate', value: '0.1%', color: 'from-purple-500 to-pink-500' },
-            ].map((metric) => (
-              <div key={metric.label} className="p-4 rounded-xl bg-gradient-to-br from-gray-50 to-blue-50">
-                <p className="text-sm font-medium text-gray-600 mb-2">{metric.label}</p>
-                <p className={`text-2xl font-bold bg-gradient-to-r ${metric.color} bg-clip-text text-transparent`}>
-                  {metric.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

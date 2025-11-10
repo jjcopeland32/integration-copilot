@@ -1,145 +1,121 @@
 'use client';
 
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Download, CheckCircle } from 'lucide-react';
-import Link from 'next/link';
+import { useProjectContext } from '@/components/project-context';
+import { trpc } from '@/lib/trpc/client';
+
+const riskBadge = (risk: string) => {
+  switch (risk) {
+    case 'LOW':
+      return <Badge variant="success">Low Risk</Badge>;
+    case 'MEDIUM':
+      return <Badge variant="warning">Medium Risk</Badge>;
+    case 'HIGH':
+    case 'CRITICAL':
+      return <Badge variant="error">{risk.charAt(0) + risk.slice(1).toLowerCase()} Risk</Badge>;
+    default:
+      return <Badge>Unknown</Badge>;
+  }
+};
 
 export default function ReportsPage() {
-  // Mock data
-  const reports = [
-    {
-      id: '1',
-      project: 'Stripe Payment Integration',
-      type: 'READINESS',
-      status: 'SIGNED',
-      risk: 'LOW',
-      passRate: 95,
-      createdAt: '2025-11-01',
-      signedBy: 'John Doe',
-    },
-    {
-      id: '2',
-      project: 'PayPal Checkout',
-      type: 'READINESS',
-      status: 'DRAFT',
-      risk: 'MEDIUM',
-      passRate: 88,
-      createdAt: '2025-11-02',
-      signedBy: null,
-    },
-  ];
+  const { projectId, projectName } = useProjectContext();
 
-  const getRiskBadge = (risk: string) => {
-    switch (risk) {
-      case 'LOW':
-        return <Badge variant="success">Low Risk</Badge>;
-      case 'MEDIUM':
-        return <Badge variant="warning">Medium Risk</Badge>;
-      case 'HIGH':
-        return <Badge variant="error">High Risk</Badge>;
-      case 'CRITICAL':
-        return <Badge variant="error">Critical Risk</Badge>;
-      default:
-        return <Badge>Unknown</Badge>;
-    }
-  };
+  if (!projectId) {
+    return (
+      <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
+        <h2 className="text-2xl font-semibold text-gray-900">Select a project to view reports</h2>
+        <p className="mt-2 text-sm text-gray-600">Readiness reports are scoped per project. Choose a project first.</p>
+        <Link href="/projects" className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg">
+          View Projects
+        </Link>
+      </div>
+    );
+  }
+
+  const reportsQuery = trpc.report.list.useQuery({ projectId });
+  const reports = reportsQuery.data ?? [];
+
+  if (reportsQuery.isLoading) {
+    return (
+      <div className="rounded-3xl border border-gray-100 bg-white/70 p-12 text-center text-gray-500 shadow-inner">
+        Loading reports…
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">{projectName}</p>
           <h1 className="text-3xl font-bold">Readiness Reports</h1>
           <p className="text-gray-500 mt-2">Production go-live assessments</p>
         </div>
-        <Button>
+        <Button disabled className="cursor-not-allowed">
           <FileText className="h-4 w-4 mr-2" />
           Generate Report
         </Button>
       </div>
 
-      <div className="space-y-4">
-        {reports.map((report) => (
-          <Card key={report.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle>{report.project}</CardTitle>
-                  <CardDescription className="mt-1">
-                    Created {report.createdAt}
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  {getRiskBadge(report.risk)}
-                  {report.status === 'SIGNED' && (
-                    <Badge variant="success">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Signed
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="flex gap-6 text-sm">
+      {reports.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
+          <p className="text-gray-600">No reports yet. Run tests and gather traces to unlock readiness scoring.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {reports.map((report) => (
+            <Card key={report.id}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
                   <div>
-                    <span className="text-gray-500">Test Pass Rate:</span>{' '}
-                    <span className="font-medium">{report.passRate}%</span>
+                    <CardTitle>{projectName}</CardTitle>
+                    <CardDescription className="mt-1">
+                      Created {new Date(report.createdAt).toLocaleString()}
+                    </CardDescription>
                   </div>
-                  {report.signedBy && (
-                    <div>
-                      <span className="text-gray-500">Signed by:</span>{' '}
-                      <span className="font-medium">{report.signedBy}</span>
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    {riskBadge(report.risk ?? 'LOW')}
+                    {report.status === 'SIGNED' && (
+                      <Badge variant="success">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Signed
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Link href={`/reports/${report.id}`}>
-                    <Button variant="outline" size="sm">
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-6 text-sm">
+                    <div>
+                      <span className="text-gray-500">Score:</span>{' '}
+                      <span className="font-medium">{report.score ?? 0}%</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Status:</span>{' '}
+                      <span className="font-medium">{report.status}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled>
                       View Report
                     </Button>
-                  </Link>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
+                    <Button variant="outline" size="sm" disabled>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Report Template Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Report Contents</CardTitle>
-          <CardDescription>What's included in readiness reports</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-2">
-            {[
-              'Test pass rate and coverage',
-              'Error rate analysis',
-              'Average latency metrics',
-              'Phase completion status',
-              'Risk assessment (Critical/High/Medium/Low)',
-              'Security review results',
-              'Documentation completeness',
-              'Recommendations for go-live',
-              'Evidence and audit trail',
-              'E-signature support',
-            ].map((item) => (
-              <div key={item} className="flex items-center gap-2 text-sm">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                {item}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
