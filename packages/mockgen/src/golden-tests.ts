@@ -33,19 +33,19 @@ export class GoldenTestGenerator {
       (e) => e.method === 'POST' || e.method === 'GET'
     );
     const postEndpoints = spec.endpoints.filter((e) => e.method === 'POST');
-    const preferredEndpoint = postEndpoints[0] ?? coreEndpoints[0];
+    const preferredEndpoint = postEndpoints[0];
     if (preferredEndpoint) {
       tests.push(this.generateCreateTest(preferredEndpoint, baseUrl));
     }
 
     // 3. Idempotency test
-    if (postEndpoints[0] || coreEndpoints[0]) {
-      tests.push(this.generateIdempotencyTest(preferredEndpoint ?? coreEndpoints[0], baseUrl));
+    if (preferredEndpoint) {
+      tests.push(this.generateIdempotencyTest(preferredEndpoint, baseUrl));
     }
 
     // 4. Invalid input test
-    if (postEndpoints[0] || coreEndpoints[0]) {
-      tests.push(this.generateInvalidInputTest(preferredEndpoint ?? coreEndpoints[0], baseUrl));
+    if (preferredEndpoint) {
+      tests.push(this.generateInvalidInputTest(preferredEndpoint, baseUrl));
     }
 
     // 5. Webhook signature test
@@ -73,8 +73,8 @@ export class GoldenTestGenerator {
     }
 
     // 10. Invalid currency/parameter test
-    if (postEndpoints[0] || coreEndpoints[0]) {
-      tests.push(this.generateInvalidParameterTest(preferredEndpoint ?? coreEndpoints[0], baseUrl));
+    if (preferredEndpoint) {
+      tests.push(this.generateInvalidParameterTest(preferredEndpoint, baseUrl));
     }
 
     return tests.slice(0, 10); // Ensure exactly 10 tests
@@ -223,7 +223,7 @@ export class GoldenTestGenerator {
         method: endpoint.method,
         path: endpoint.path,
         headers: {
-          'X-Simulate-Rate-Limit': 'exceed',
+          'x-simulate-rate-limit': 'exceed',
         },
       },
       expectedStatus: 429,
