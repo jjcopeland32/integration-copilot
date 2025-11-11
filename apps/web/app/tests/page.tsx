@@ -32,6 +32,8 @@ type SuiteRunResult = {
   suiteId?: string;
 };
 
+type CaseResult = NonNullable<SuiteRunResult['cases']>[number];
+
 export default function TestsPage() {
   const { projectId, projectName } = useProjectContext();
   const utils = trpc.useUtils();

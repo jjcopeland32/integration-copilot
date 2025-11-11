@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { runSuite } from '@integration-copilot/testkit';
 import { RBACError, requireRole } from '@/lib/rbac';
@@ -164,8 +165,10 @@ export async function POST(req: NextRequest) {
           : undefined,
     };
 
+    const runIdentifier = (rawResult as Record<string, any>)?.runId ?? crypto.randomUUID();
     const normalizedResult = {
       suiteId: suiteRecord.id,
+      runId: runIdentifier,
       startedAt: rawResult.startedAt,
       finishedAt: rawResult.finishedAt,
       summary,
@@ -186,6 +189,33 @@ export async function POST(req: NextRequest) {
         results: normalizedResult,
       },
     });
+    const tracePayloads =
+      normalizedResult.cases?.map((caseResult) => ({
+        projectId: suiteRecord.projectId,
+        requestMeta: {
+          suiteId: suiteRecord.id,
+          suiteName: suiteRecord.name,
+          caseId: caseResult.id,
+          caseName: caseResult.name,
+          runId: normalizedResult.runId,
+          expectedStatus: suite.cases.find((c) => c.id === caseResult.id)?.expect?.status ?? null,
+        },
+        responseMeta: {
+          status: caseResult.response?.status ?? null,
+          body: caseResult.response?.body ?? null,
+          baseUrl,
+        },
+        verdict: caseResult.status === 'passed' ? 'pass' : 'fail',
+      })) ?? [];
+    if (tracePayloads.length > 0) {
+      await prisma.$transaction(
+        tracePayloads.map((payload) =>
+          prisma.trace.create({
+            data: payload,
+          })
+        )
+      );
+    }
 
     return NextResponse.json({ ok: true, result: normalizedResult });
   } catch (error) {
