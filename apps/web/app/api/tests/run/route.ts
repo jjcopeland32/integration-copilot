@@ -141,20 +141,53 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await runSuite(suiteRecord.id, suite, {
+    const rawResult = await runSuite({
+      suite,
       baseUrl,
+      actor,
     });
-    await persistArtifacts(result);
+    await persistArtifacts(rawResult);
+
+    const derivedSummary = rawResult.summary ?? {
+      total: rawResult.results?.length ?? suite.cases.length,
+      passed: rawResult.results?.filter((r) => r.status === 'passed')?.length ?? 0,
+      failed: rawResult.results?.filter((r) => r.status !== 'passed')?.length ?? 0,
+      skipped: rawResult.results?.filter((r) => r.status === 'skipped')?.length ?? 0,
+    };
+    const startedAtMs = rawResult.startedAt ? new Date(rawResult.startedAt).getTime() : undefined;
+    const finishedAtMs = rawResult.finishedAt ? new Date(rawResult.finishedAt).getTime() : undefined;
+    const summary = {
+      ...derivedSummary,
+      durationMs:
+        typeof startedAtMs === 'number' && typeof finishedAtMs === 'number'
+          ? Math.max(finishedAtMs - startedAtMs, 0)
+          : undefined,
+    };
+
+    const normalizedResult = {
+      suiteId: suiteRecord.id,
+      startedAt: rawResult.startedAt,
+      finishedAt: rawResult.finishedAt,
+      summary,
+      cases: (rawResult.results ?? []).map((test) => ({
+        id: test.id,
+        name: test.name,
+        status: test.status,
+        message: test.message,
+        response: test.response,
+      })),
+    };
+
     await prisma.testRun.create({
       data: {
         suiteId: suiteRecord.id,
         actor,
         env: baseUrl,
-        results: result,
+        results: normalizedResult,
       },
     });
 
-    return NextResponse.json({ ok: true, result });
+    return NextResponse.json({ ok: true, result: normalizedResult });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Unable to run golden test suite';

@@ -74,11 +74,11 @@ export class MockGenerator {
     const successResponse = endpoint.responses['200'] || endpoint.responses['201'];
     
     if (!successResponse?.content?.['application/json']?.schema) {
-      return { success: true, message: 'OK' };
+      return this.ensureResponseShape({ success: true, message: 'OK' });
     }
 
     const schema = successResponse.content['application/json'].schema;
-    return this.generateFromSchema(schema);
+    return this.ensureResponseShape(this.generateFromSchema(schema));
   }
 
   private generateFromSchema(schema: any): any {
@@ -116,10 +116,32 @@ export class MockGenerator {
   }
 
   private getSuccessStatusCode(endpoint: NormalizedEndpoint): number {
+    if (endpoint.method === 'POST') {
+      if (endpoint.responses['201']) return 201;
+      if (endpoint.responses['200']) return 201;
+    }
     if (endpoint.responses['200']) return 200;
     if (endpoint.responses['201']) return 201;
     if (endpoint.responses['204']) return 204;
-    return 200;
+    return endpoint.method === 'POST' ? 201 : 200;
+  }
+
+  private ensureResponseShape(response: any): any {
+    if (Array.isArray(response) && response.length > 0) {
+      response[0] = this.ensureResponseShape(response[0]);
+      return response;
+    }
+
+    if (response && typeof response === 'object') {
+      if (!('id' in response)) {
+        response.id = 'mock_item_001';
+      }
+      if (!('status' in response)) {
+        response.status = 'succeeded';
+      }
+    }
+
+    return response;
   }
 
   private generatePostmanCollection(

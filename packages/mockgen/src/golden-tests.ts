@@ -221,6 +221,9 @@ export class GoldenTestGenerator {
       request: {
         method: endpoint.method,
         path: endpoint.path,
+        headers: {
+          'X-Simulate-RateLimit': 'exceed',
+        },
       },
       expectedStatus: 429,
       assertions: [

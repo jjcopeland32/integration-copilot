@@ -7,6 +7,7 @@ export class MockServer {
   private app: Express;
   private config: MockConfig;
   private server?: Server;
+  private rateLimitByHeader = new Set<string>();
 
   constructor(config: MockConfig) {
     this.app = express();
@@ -89,6 +90,10 @@ export class MockServer {
           console.log(`[Idempotency] Key: ${idempotencyKey}`);
         }
 
+        if (await this.handleSimulationHeaders(req, res)) {
+          return;
+        }
+
         // Return mock response
         res.status(route.statusCode).json(route.response);
       } catch (error) {
@@ -99,6 +104,66 @@ export class MockServer {
         });
       }
     });
+  }
+
+  private async handleSimulationHeaders(req: Request, res: Response): Promise<boolean> {
+    const rateLimitHeader = req.headers['x-simulate-rate-limit'];
+    if (typeof rateLimitHeader === 'string') {
+      const key = `${req.ip}:${req.path}`;
+      if (rateLimitHeader === 'reset') {
+        this.rateLimitByHeader.delete(key);
+      } else {
+        this.rateLimitByHeader.add(key);
+      }
+      res.status(429).json({
+        error: 'Too Many Requests',
+        message: 'Rate limit exceeded',
+      });
+      return true;
+    }
+
+    const simulateError = req.headers['x-simulate-error'];
+    if (simulateError) {
+      const statusCode = Number(simulateError) || 500;
+      res.status(statusCode).json({
+        error: 'Simulated error',
+      });
+      return true;
+    }
+
+    const simulateDelay = req.headers['x-simulate-delay'];
+    if (simulateDelay) {
+      const delayMs = Number(simulateDelay) || 3000;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      res.status(408).json({
+        error: 'Request Timeout',
+        message: 'Simulated timeout',
+      });
+      return true;
+    }
+
+    if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+      const body = req.body ?? {};
+      const hasBody = body && Object.keys(body).length > 0;
+      if (!hasBody) {
+        res.status(400).json({
+          error: 'Invalid input',
+          message: 'Missing required fields',
+        });
+        return true;
+      }
+
+      if (typeof body.currency === 'string' && body.currency.toUpperCase() === 'INVALID') {
+        res.status(400).json({
+          error: 'Invalid parameter',
+          message: 'Unsupported currency',
+          field: 'currency',
+        });
+        return true;
+      }
+    }
+
+    return false;
   }
 
   getApp(): Express {

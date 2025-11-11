@@ -9,22 +9,6 @@ import { TestTube, Play, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useProjectContext } from '@/components/project-context';
 
-type CaseResult = {
-  id: string;
-  name: string;
-  status: 'passed' | 'failed';
-  errors?: string[];
-  repeats?: Array<{
-    repeatIndex: number;
-    attempts: Array<{
-      status: number;
-      durationMs?: number;
-      body?: unknown;
-      timestamp?: number;
-    }>;
-  }>;
-};
-
 type SuiteRunResult = {
   summary?: {
     total: number;
@@ -32,7 +16,16 @@ type SuiteRunResult = {
     failed: number;
     durationMs?: number;
   };
-  cases?: CaseResult[];
+  cases?: Array<{
+    id: string;
+    name: string;
+    status: 'passed' | 'failed' | 'skipped';
+    message?: string;
+    response?: {
+      status?: number;
+      body?: unknown;
+    };
+  }>;
   startedAt?: string;
   finishedAt?: string;
   runId?: string;
@@ -226,8 +219,16 @@ export default function TestsPage() {
                   {caseResults.length > 0 && (
                     <div className="mt-2 space-y-2 rounded-2xl border border-gray-100 bg-gray-50/80 p-3 max-h-60 overflow-auto">
                       {caseResults.map((caseResult) => {
-                        const latestAttempt = caseResult.repeats?.[caseResult.repeats.length - 1]?.attempts?.slice(-1)?.[0];
-                        const errorMessage = caseResult.errors?.[0];
+                        const statusBadge =
+                          caseResult.status === 'passed'
+                            ? 'success'
+                            : caseResult.status === 'failed'
+                            ? 'warning'
+                            : 'outline';
+                        const description =
+                          caseResult.status === 'passed'
+                            ? `Status ${caseResult.response?.status ?? '200'}`
+                            : caseResult.message ?? 'Assertion failed';
                         return (
                           <div
                             key={caseResult.id}
@@ -235,15 +236,9 @@ export default function TestsPage() {
                           >
                             <div>
                               <p className="text-sm font-semibold text-gray-900">{caseResult.name}</p>
-                              <p className="text-xs text-gray-500">
-                                {errorMessage
-                                  ? errorMessage
-                                  : latestAttempt
-                                  ? `Status ${latestAttempt.status}`
-                                  : 'All assertions satisfied'}
-                              </p>
+                              <p className="text-xs text-gray-500">{description}</p>
                             </div>
-                            <Badge variant={caseResult.status === 'passed' ? 'success' : 'warning'}>
+                            <Badge variant={statusBadge}>
                               {caseResult.status.toUpperCase()}
                             </Badge>
                           </div>
