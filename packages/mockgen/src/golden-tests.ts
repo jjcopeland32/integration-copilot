@@ -32,19 +32,20 @@ export class GoldenTestGenerator {
     const coreEndpoints = spec.endpoints.filter(
       (e) => e.method === 'POST' || e.method === 'GET'
     );
-    if (postEndpoints[0] || coreEndpoints[0]) {
-      tests.push(this.generateCreateTest(postEndpoints[0] ?? coreEndpoints[0], baseUrl));
+    const postEndpoints = spec.endpoints.filter((e) => e.method === 'POST');
+    const preferredEndpoint = postEndpoints[0] ?? coreEndpoints[0];
+    if (preferredEndpoint) {
+      tests.push(this.generateCreateTest(preferredEndpoint, baseUrl));
     }
 
     // 3. Idempotency test
-    const postEndpoints = spec.endpoints.filter((e) => e.method === 'POST');
     if (postEndpoints[0] || coreEndpoints[0]) {
-      tests.push(this.generateIdempotencyTest(postEndpoints[0] ?? coreEndpoints[0], baseUrl));
+      tests.push(this.generateIdempotencyTest(preferredEndpoint ?? coreEndpoints[0], baseUrl));
     }
 
     // 4. Invalid input test
     if (postEndpoints[0] || coreEndpoints[0]) {
-      tests.push(this.generateInvalidInputTest(postEndpoints[0] ?? coreEndpoints[0], baseUrl));
+      tests.push(this.generateInvalidInputTest(preferredEndpoint ?? coreEndpoints[0], baseUrl));
     }
 
     // 5. Webhook signature test
@@ -73,7 +74,7 @@ export class GoldenTestGenerator {
 
     // 10. Invalid currency/parameter test
     if (postEndpoints[0] || coreEndpoints[0]) {
-      tests.push(this.generateInvalidParameterTest(postEndpoints[0] ?? coreEndpoints[0], baseUrl));
+      tests.push(this.generateInvalidParameterTest(preferredEndpoint ?? coreEndpoints[0], baseUrl));
     }
 
     return tests.slice(0, 10); // Ensure exactly 10 tests
