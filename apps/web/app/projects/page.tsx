@@ -89,7 +89,7 @@ function ProjectGrid({
                           ? 'success'
                           : project.status === 'DRAFT'
                           ? 'warning'
-                          : 'secondary'
+                          : 'default'
                       }
                     >
                       {project.status}
@@ -282,16 +282,16 @@ export default function ProjectsPage() {
                 </p>
               )}
               <div className="flex justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setShowDialog(false)}
-                  disabled={createProject.isLoading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" className="gap-2" disabled={createProject.isLoading}>
-                  {createProject.isLoading ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setShowDialog(false)}
+                disabled={createProject.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="gap-2" disabled={createProject.isPending}>
+                {createProject.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Creating…

@@ -9,6 +9,19 @@ import { useProjectContext } from '@/components/project-context';
 import { trpc } from '@/lib/trpc/client';
 import { useMemo } from 'react';
 
+type StoredMockConfig = {
+  specName?: string;
+  routes?: unknown[];
+  postmanCollection?: Record<string, unknown>;
+};
+
+function parseMockConfig(config: unknown): StoredMockConfig {
+  if (config && typeof config === 'object') {
+    return config as StoredMockConfig;
+  }
+  return {};
+}
+
 export default function MocksPage() {
   const { projectId, projectName } = useProjectContext();
   const utils = trpc.useUtils();
@@ -28,7 +41,7 @@ export default function MocksPage() {
     },
   });
 
-  const mocks = mocksQuery.data ?? [];
+  const mocks = useMemo(() => mocksQuery.data ?? [], [mocksQuery.data]);
   const isLoading = mocksQuery.isLoading;
 
   const totalMocks = mocks.length;
@@ -41,13 +54,14 @@ export default function MocksPage() {
   });
 
   const handleDownload = (mock: any) => {
-    const collection = mock?.config?.postmanCollection;
+    const config = parseMockConfig(mock?.config);
+    const collection = config.postmanCollection;
     if (!collection) return;
     const blob = new Blob([JSON.stringify(collection, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${mock.name.replace(/\s+/g, '-').toLowerCase()}-postman.json`;
+    link.download = `${(config.specName ?? 'mock-service').replace(/\s+/g, '-').toLowerCase()}-postman.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -103,8 +117,9 @@ export default function MocksPage() {
           {mocks.map((mock, index) => {
             const running = mock.status === 'RUNNING';
             const gradient = running ? 'from-green-500 to-emerald-500' : 'from-blue-500 to-cyan-500';
-            const routes = mock.config?.routes?.length ?? 0;
-            const specLabel = mock.config?.specName ?? mock.name ?? `Mock #${index + 1}`;
+            const config = parseMockConfig(mock.config);
+            const routes = Array.isArray(config.routes) ? config.routes.length : 0;
+            const specLabel = config.specName ?? `Mock #${index + 1}`;
             const port = (() => {
               try {
                 const url = new URL(mock.baseUrl);
@@ -123,11 +138,11 @@ export default function MocksPage() {
                     <div className="flex items-center gap-2">
                       <Badge variant={running ? 'success' : 'default'}>{mock.status}</Badge>
                       <Button
-                        size="icon"
+                        size="sm"
                         variant="ghost"
-                        className="h-8 w-8 text-gray-500 hover:text-red-500"
+                        className="h-8 w-8 text-gray-500 hover:text-red-500 rounded-full"
                         onClick={() => handleDelete(mock)}
-                        disabled={deleteMutation.isLoading}
+                        disabled={deleteMutation.isPending}
                         title="Delete mock"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -155,7 +170,7 @@ export default function MocksPage() {
                           ? stopMutation.mutate({ id: mock.id })
                           : startMutation.mutate({ id: mock.id })
                       }
-                      disabled={startMutation.isLoading || stopMutation.isLoading}
+                      disabled={startMutation.isPending || stopMutation.isPending}
                     >
                       {running ? <Square className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
                       {running ? 'Stop' : 'Start'}
@@ -164,7 +179,7 @@ export default function MocksPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleDownload(mock)}
-                      disabled={!mock.config?.postmanCollection}
+                      disabled={!config.postmanCollection}
                     >
                       <Download className="h-4 w-4" />
                     </Button>

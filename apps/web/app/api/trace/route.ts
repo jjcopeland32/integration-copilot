@@ -11,6 +11,13 @@ type Primitive = string | number | boolean | null;
 
 type Redactable = Primitive | Record<string, any> | Array<any>;
 
+type TracePayload = {
+  projectId: string;
+  requestMeta: Record<string, any>;
+  responseMeta: Record<string, any>;
+  verdict: string;
+};
+
 function getRedactionList(): string[] {
   const envList = process.env.TELEMETRY_REDACT_FIELDS;
   if (!envList) return DEFAULT_REDACTION_FIELDS;

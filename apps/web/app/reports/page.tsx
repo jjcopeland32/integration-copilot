@@ -90,7 +90,7 @@ export default function ReportsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between">
+                <div className="space-y-4">
                   <div className="grid gap-4 text-sm md:grid-cols-3">
                     <div className="rounded-2xl bg-gray-50 px-4 py-2">
                       <p className="text-xs uppercase text-gray-500">Pass Rate</p>
@@ -109,16 +109,38 @@ export default function ReportsPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Link href={`/reports/${report.id}`}>
-                      <Button variant="outline" size="sm">
-                        View Report
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap gap-2">
+                      {(report.phaseSummaries ?? [])
+                        .filter((phase) => phase.enabled)
+                        .map((phase) => (
+                          <Badge
+                            key={`${report.id}-${phase.key}`}
+                            variant={
+                              (phase.completion ?? 0) === 100 ? 'success' : phase.completion ? 'info' : 'outline'
+                            }
+                            className="text-xs"
+                          >
+                            {phase.title}: {phase.completion ?? 0}%
+                          </Badge>
+                        ))}
+                      {(report.phaseSummaries ?? []).filter((phase) => !phase.enabled).length > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {(report.phaseSummaries ?? []).filter((phase) => !phase.enabled).length} out-of-scope
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Link href={`/reports/${report.id}`}>
+                        <Button variant="outline" size="sm">
+                          View Report
+                        </Button>
+                      </Link>
+                      <Button variant="outline" size="sm" disabled>
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
                       </Button>
-                    </Link>
-                    <Button variant="outline" size="sm" disabled>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>

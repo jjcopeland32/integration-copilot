@@ -1,6 +1,7 @@
 import { router, publicProcedure } from '../server';
 import { z } from 'zod';
 import { ensureDemoWorkspace } from '../../workspace';
+import { Prisma } from '@prisma/client';
 import {
   createPlanBoardManager,
   PLAN_PHASES,
@@ -112,7 +113,7 @@ export const projectRouter = router({
           orgId: org.id,
           name: input.name,
           status: input.status ?? 'DRAFT',
-          phaseConfig: defaultConfig,
+          phaseConfig: defaultConfig as unknown as Prisma.InputJsonValue,
         },
         include: projectInclude,
       });
@@ -239,7 +240,7 @@ export const projectRouter = router({
       const normalized = normalizePhaseConfig(input.config);
       const project = await ctx.prisma.project.update({
         where: { id: input.projectId },
-        data: { phaseConfig: normalized },
+        data: { phaseConfig: normalized as unknown as Prisma.InputJsonValue },
         include: projectInclude,
       });
       const planBoard = createPlanBoardManager(ctx.prisma);

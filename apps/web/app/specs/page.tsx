@@ -207,7 +207,7 @@ export default function SpecsPage() {
 
   const blueprint = trpc.spec.generateBlueprint.useMutation({
     onSuccess: (result) => {
-      setActionMessage(result.success ? `Blueprint ready for ${result.spec.title}` : result.error || 'Blueprint failed');
+      setActionMessage(`Blueprint ready for ${result.spec.title}`);
       setLoadingAction(null);
     },
     onError: () => {
@@ -218,7 +218,7 @@ export default function SpecsPage() {
 
   const mock = trpc.spec.generateMock.useMutation({
     onSuccess: (result) => {
-      setActionMessage(result.success ? `Mock created at ${result.mock.baseUrl}` : result.error || 'Mock generation failed');
+      setActionMessage(`Mock created at ${result.mock.baseUrl}`);
       setLoadingAction(null);
     },
     onError: () => {
@@ -229,7 +229,7 @@ export default function SpecsPage() {
 
   const tests = trpc.spec.generateTests.useMutation({
     onSuccess: (result) => {
-      setActionMessage(result.success ? `Golden tests created: ${result.tests.length} cases.` : result.error || 'Test generation failed');
+      setActionMessage(`Golden tests created: ${result.tests.length} cases.`);
       setLoadingAction(null);
     },
     onError: () => {
@@ -264,7 +264,7 @@ export default function SpecsPage() {
 
   return (
     <div className="space-y-10">
-      <Hero onLoadSamples={() => loadSamples.mutate({ projectId: projectFilter })} loadingSamples={loadSamples.isLoading} />
+      <Hero onLoadSamples={() => loadSamples.mutate({ projectId: projectFilter })} loadingSamples={loadSamples.isPending} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 bg-white/90 backdrop-blur">

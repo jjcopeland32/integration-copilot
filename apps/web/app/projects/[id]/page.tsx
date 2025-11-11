@@ -15,9 +15,9 @@ import { UI_PLAN_PHASES, type UIPhaseKey } from '@/data/plan-phases';
 type AutomationState = 'idle' | 'running' | 'success' | 'error';
 type ScenarioState = { id: string; name: string; description?: string };
 type BenchmarkState = {
-  targetLatencyMs?: number | null;
-  maxErrorRatePercent?: number | null;
-  targetSuccessRatePercent?: number | null;
+  targetLatencyMs?: number;
+  maxErrorRatePercent?: number;
+  targetSuccessRatePercent?: number;
 } | null;
 type PhaseSettingsState = {
   enabled: boolean;
@@ -74,10 +74,11 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   });
 
   useEffect(() => {
-    if (project) {
-      setActiveProject({ id: project.id, name: project.name });
+    if (!project) {
+      return;
     }
-  }, [project?.id, project?.name, setActiveProject]);
+    setActiveProject({ id: project.id, name: project.name });
+  }, [project, setActiveProject]);
 
   useEffect(() => {
     if (!project?.phaseConfig) {
@@ -278,7 +279,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
                 <CardTitle className="text-lg text-gray-900">Generate Mock & Tests</CardTitle>
                 <CardDescription>Run automation across every spec in this project.</CardDescription>
               </div>
-              <Badge variant={automationState === 'error' ? 'destructive' : automationState === 'success' ? 'success' : 'outline'}>
+              <Badge variant={automationState === 'error' ? 'error' : automationState === 'success' ? 'success' : 'outline'}>
                 {automationStatusCopy[automationState]}
               </Badge>
             </div>
@@ -353,10 +354,10 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             {phaseMessage && <span className="text-sm text-gray-600">{phaseMessage}</span>}
             <Button
               onClick={handleSaveScope}
-              disabled={!phaseConfig || configurePhases.isLoading}
+              disabled={!phaseConfig || configurePhases.isPending}
               className="gap-2"
             >
-              {configurePhases.isLoading ? (
+              {configurePhases.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Saving…
@@ -538,7 +539,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             <div className="py-8 text-center text-gray-500">No specs yet. Head to the Specs page to import one.</div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {project.specs.map((spec) => (
+              {project.specs.map((spec: (typeof project.specs)[number]) => (
                 <div key={spec.id} className="flex items-center justify-between py-3">
                   <div>
                     <p className="font-medium text-gray-900">{spec.name}</p>
@@ -562,16 +563,16 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               </p>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setShowDelete(false)} disabled={deleteMutation.isLoading}>
+              <Button variant="ghost" onClick={() => setShowDelete(false)} disabled={deleteMutation.isPending}>
                 Cancel
               </Button>
               <Button
                 variant="destructive"
                 className="gap-1"
                 onClick={() => deleteMutation.mutate({ id: project.id })}
-                disabled={deleteMutation.isLoading}
+                disabled={deleteMutation.isPending}
               >
-                {deleteMutation.isLoading ? (
+                {deleteMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Deleting…
@@ -615,11 +616,11 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               </div>
               {importStatus && <p className="text-sm text-gray-500">{importStatus}</p>}
               <div className="flex justify-end gap-3">
-                <Button variant="ghost" onClick={() => setShowImport(false)} disabled={importSpec.isLoading}>
+                <Button variant="ghost" onClick={() => setShowImport(false)} disabled={importSpec.isPending}>
                   Cancel
                 </Button>
-                <Button type="submit" className="gap-2" disabled={!importUrl || importSpec.isLoading}>
-                  {importSpec.isLoading ? (
+                <Button type="submit" className="gap-2" disabled={!importUrl || importSpec.isPending}>
+                  {importSpec.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Importing…

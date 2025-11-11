@@ -1,4 +1,4 @@
-import { PrismaClient, PlanStatus } from '@prisma/client';
+import { PrismaClient, PlanStatus, Prisma } from '@prisma/client';
 import {
   PLAN_PHASES,
   type PhaseDefinition,
@@ -87,7 +87,7 @@ export class PlanBoardManager {
     });
     const seen = new Set(existingItems.map((item) => `${item.phase}:${item.title}`));
 
-    const items: Array<Omit<PlanItemRecord, 'id'>> = [];
+    const items: Prisma.PlanItemCreateManyInput[] = [];
 
     for (const phase of enabledPhases) {
       const settings = normalized[phase.key];

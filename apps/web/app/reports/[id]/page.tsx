@@ -40,7 +40,9 @@ export default async function ReportDetailPage({ params }: { params: { id: strin
     errorRate: 0,
     phaseCompletion: {},
   };
-  const phaseEntries = Object.entries(metrics.phaseCompletion ?? {});
+  const phaseSummaries = report.phaseSummaries ?? [];
+  const inScopePhases = phaseSummaries.filter((phase: any) => phase.enabled);
+  const outOfScopePhases = phaseSummaries.filter((phase: any) => !phase.enabled);
   const risks = report.risks ?? [];
   const recommendations = report.recommendations ?? [];
 
@@ -116,23 +118,98 @@ export default async function ReportDetailPage({ params }: { params: { id: strin
           <CardTitle>Phase Completion</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {phaseEntries.length === 0 ? (
+          {inScopePhases.length === 0 ? (
             <p className="text-sm text-gray-500">No plan items yet. Initialize the plan board to track phases.</p>
           ) : (
-            phaseEntries.map(([phase, value]) => (
-              <div key={phase}>
+            inScopePhases.map((phase: any) => (
+              <div key={phase.key}>
                 <div className="flex items-center justify-between text-sm font-medium text-gray-600">
-                  <span className="uppercase tracking-wide">{phase}</span>
-                  <span>{value}%</span>
+                  <div className="flex items-center gap-2">
+                    <span className="uppercase tracking-wide">{phase.title}</span>
+                    {phase.optional && <Badge variant="outline" className="text-[10px] uppercase">Optional</Badge>}
+                  </div>
+                  <span>{phase.completion ?? 0}%</span>
                 </div>
                 <div className="mt-1 h-2 rounded-full bg-gray-200">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-600"
-                    style={{ width: `${value}%` }}
+                    style={{ width: `${phase.completion ?? 0}%` }}
                   />
                 </div>
               </div>
             ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Scope & Benchmarks</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {phaseSummaries.length === 0 ? (
+            <p className="text-sm text-gray-500">Phase configuration unavailable for this project.</p>
+          ) : (
+            phaseSummaries.map((phase: any) => (
+              <div
+                key={phase.key}
+                className="rounded-2xl border border-gray-100 p-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-gray-900">{phase.title}</p>
+                    {phase.optional && <Badge variant="outline">Optional</Badge>}
+                  </div>
+                  <Badge variant={phase.enabled ? 'success' : 'outline'}>
+                    {phase.enabled ? 'In Scope' : 'Out of Scope'}
+                  </Badge>
+                </div>
+                {phase.enabled && typeof phase.completion === 'number' && (
+                  <p className="mt-1 text-xs uppercase tracking-wide text-gray-500">
+                    Completion: {phase.completion}%
+                  </p>
+                )}
+                {phase.notes && (
+                  <p className="mt-2 text-sm text-gray-600">{phase.notes}</p>
+                )}
+                {phase.scenarios?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      UAT Scenarios
+                    </p>
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-600">
+                      {phase.scenarios.map((scenario: any) => (
+                        <li key={scenario.id}>{scenario.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {phase.performanceBenchmark && (
+                  <div className="mt-3 grid gap-2 text-xs text-gray-600 sm:grid-cols-3">
+                    {typeof phase.performanceBenchmark.targetLatencyMs === 'number' && (
+                      <div className="rounded-2xl bg-gray-50 px-3 py-2">
+                        Target Latency: {phase.performanceBenchmark.targetLatencyMs}ms
+                      </div>
+                    )}
+                    {typeof phase.performanceBenchmark.maxErrorRatePercent === 'number' && (
+                      <div className="rounded-2xl bg-gray-50 px-3 py-2">
+                        Error ≤ {phase.performanceBenchmark.maxErrorRatePercent}%
+                      </div>
+                    )}
+                    {typeof phase.performanceBenchmark.targetSuccessRatePercent === 'number' && (
+                      <div className="rounded-2xl bg-gray-50 px-3 py-2">
+                        Success ≥ {phase.performanceBenchmark.targetSuccessRatePercent}%
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+          {outOfScopePhases.length > 0 && (
+            <p className="text-xs text-gray-500">
+              {outOfScopePhases.length} phase{outOfScopePhases.length > 1 ? 's' : ''} intentionally out of scope for this project.
+            </p>
           )}
         </CardContent>
       </Card>

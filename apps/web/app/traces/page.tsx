@@ -14,7 +14,18 @@ export default function TracesPage() {
     projectId ? { id: projectId } : { id: '' },
     { enabled: !!projectId }
   );
-  const traces = projectQuery.data?.traces ?? [];
+  const traces = useMemo(() => projectQuery.data?.traces ?? [], [projectQuery.data?.traces]);
+  const totalTraces = traces.length;
+  const passCount = traces.filter((trace: any) => (trace.verdict ?? '').toLowerCase() === 'pass').length;
+  const passRate = totalTraces > 0 ? Math.round((passCount / totalTraces) * 100) : 0;
+  const avgLatency = useMemo(() => {
+    if (totalTraces === 0) return 0;
+    const sum = traces.reduce((acc: number, trace: any) => {
+      const latency = trace.responseMeta?.latencyMs;
+      return acc + (typeof latency === 'number' ? latency : 0);
+    }, 0);
+    return Math.round(sum / totalTraces);
+  }, [traces, totalTraces]);
 
   if (!projectId) {
     return (
@@ -32,18 +43,6 @@ export default function TracesPage() {
       </div>
     );
   }
-
-  const totalTraces = traces.length;
-  const passCount = traces.filter((trace: any) => (trace.verdict ?? '').toLowerCase() === 'pass').length;
-  const passRate = totalTraces > 0 ? Math.round((passCount / totalTraces) * 100) : 0;
-  const avgLatency = useMemo(() => {
-    if (totalTraces === 0) return 0;
-    const sum = traces.reduce((acc: number, trace: any) => {
-      const latency = trace.responseMeta?.latencyMs;
-      return acc + (typeof latency === 'number' ? latency : 0);
-    }, 0);
-    return Math.round(sum / totalTraces);
-  }, [traces, totalTraces]);
 
   return (
     <div className="space-y-8">

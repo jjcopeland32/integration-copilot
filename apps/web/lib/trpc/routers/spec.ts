@@ -5,7 +5,7 @@ import { SpecNormalizer, type NormalizedSpec } from '@integration-copilot/spec-e
 import { MockGenerator, GoldenTestGenerator } from '@integration-copilot/mockgen';
 import { sampleSpecs } from '../../sample-specs';
 import { ensureProjectForSpec, resolveProject } from '../../workspace';
-import { MockStatus, SpecKind } from '@prisma/client';
+import { MockStatus, SpecKind, Prisma } from '@prisma/client';
 import { ensureMockServer } from '../../mock-server-manager';
 import type { PrismaClient } from '@prisma/client';
 
@@ -22,7 +22,7 @@ async function ensureNormalizedSpec(prisma: PrismaClient, specId: string): Promi
   if (!spec) throw new Error('Spec not found');
 
   if (spec.normalized) {
-    return spec.normalized as NormalizedSpec;
+    return spec.normalized as unknown as NormalizedSpec;
   }
 
   if (!spec.raw) {
@@ -32,7 +32,7 @@ async function ensureNormalizedSpec(prisma: PrismaClient, specId: string): Promi
   const normalized = await normalizeSpec(spec.raw);
   await prisma.spec.update({
     where: { id: specId },
-    data: { normalized },
+    data: { normalized: normalized as unknown as Prisma.InputJsonValue },
   });
   return normalized;
 }
@@ -129,8 +129,8 @@ export const specRouter = router({
           kind: SpecKind.OPENAPI,
           version: normalized.version ?? '1.0.0',
           rawUrl: input.url,
-          raw: parsed,
-          normalized,
+          raw: parsed as unknown as Prisma.InputJsonValue,
+          normalized: normalized as unknown as Prisma.InputJsonValue,
         },
       });
     }),
@@ -158,8 +158,8 @@ export const specRouter = router({
           name: specName,
           kind: SpecKind.OPENAPI,
           version: normalized.version ?? '1.0.0',
-          raw: parsed,
-          normalized,
+          raw: parsed as unknown as Prisma.InputJsonValue,
+          normalized: normalized as unknown as Prisma.InputJsonValue,
         },
       });
     }),
@@ -214,7 +214,7 @@ export const specRouter = router({
             routes,
             postmanCollection,
             settings,
-          },
+          } as unknown as Prisma.InputJsonValue,
         },
       });
 
@@ -256,7 +256,7 @@ export const specRouter = router({
           projectId: spec.projectId,
           name: suiteName,
           version: normalized.version ?? '1.0.0',
-          cases: tests,
+          cases: tests as unknown as Prisma.InputJsonValue,
         },
       });
 
@@ -285,8 +285,8 @@ export const specRouter = router({
             name,
             kind: SpecKind.OPENAPI,
             version: normalized.version ?? '1.0.0',
-            raw: specDoc,
-            normalized,
+            raw: specDoc as unknown as Prisma.InputJsonValue,
+            normalized: normalized as unknown as Prisma.InputJsonValue,
           },
         });
         specs.push(spec);

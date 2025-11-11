@@ -41,11 +41,12 @@ export default function TestsPage() {
     projectId ? { id: projectId } : { id: '' },
     { enabled: !!projectId }
   );
-  const suites = suitesQuery.data?.suites ?? [];
+  const suitesData = suitesQuery.data?.suites;
+  const suites = useMemo(() => suitesData ?? [], [suitesData]);
   const totalSuites = suites.length;
   const totalCases = useMemo(
     () =>
-      suites.reduce((sum, suite) => {
+      suites.reduce((sum: number, suite: any) => {
         const cases = Array.isArray(suite.cases as unknown[]) ? (suite.cases as unknown[]).length : 0;
         return sum + cases;
       }, 0),
@@ -132,7 +133,7 @@ export default function TestsPage() {
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {suites.map((suite, index) => {
+          {suites.map((suite: any, index: number) => {
             const latestRun = suite.runs?.[0] as { results?: SuiteRunResult; createdAt?: string } | undefined;
             const caseCount = Array.isArray(suite.cases as unknown[]) ? (suite.cases as unknown[]).length : 0;
             const summary = latestRun?.results?.summary;

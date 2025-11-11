@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runSuite } from '@integration-copilot/testkit';
 import { RBACError, requireRole } from '@/lib/rbac';
 import { prisma } from '@/lib/prisma';
-import { Actor, MockStatus, PlanStatus } from '@prisma/client';
+import { Actor, MockStatus, PlanStatus, Prisma } from '@prisma/client';
 import { ensureMockServer } from '@/lib/mock-server-manager';
 import { normalizePhaseConfig, PLAN_PHASES, type PhaseKey } from '@integration-copilot/orchestrator';
 
@@ -18,20 +18,44 @@ interface RunPayload {
 }
 
 type StoredTestCase = {
-  id?: string;
-  name?: string;
+  id: string;
+  name: string;
+  type: string;
   category?: string;
   request?: {
     method?: string;
     url?: string;
-    path?: string;
     headers?: Record<string, string>;
     body?: unknown;
     repeat?: number;
+    thinkTimeMs?: number;
+    policy?: {
+      maxAttempts?: number;
+      baseDelayMs?: number;
+    };
     simulate?: Record<string, unknown>;
   };
-  expectedStatus?: number;
-  expect?: { status?: number };
+  expect?: {
+    status?: number;
+    [key: string]: unknown;
+  };
+};
+
+type SuitePayload = {
+  name: string;
+  version: string;
+  cases: StoredTestCase[];
+};
+
+type CaseSnapshot = {
+  id: string;
+  name: string;
+  status: 'passed' | 'failed' | 'skipped';
+  message: string | null;
+  response: {
+    status: number | null;
+    body: unknown;
+  } | null;
 };
 
 function normalizeCases(rawCases: unknown[]): StoredTestCase[] {
@@ -40,18 +64,20 @@ function normalizeCases(rawCases: unknown[]): StoredTestCase[] {
       return {
         id: `case_${index}`,
         name: `Case ${index + 1}`,
+        type: 'generic',
       };
     }
 
     const value = test as StoredTestCase;
     const request = value.request ?? {};
-    const { path, ...restRequest } = request;
-    const url = request.url ?? path ?? '/';
+    const { path, ...restRequest } = request as any;
+    const url = request?.url ?? path ?? '/';
 
     return {
       id: value.id ?? `case_${index}`,
       name: value.name ?? `Case ${index + 1}`,
-      category: value.category,
+      type: value.type ?? 'generic',
+      category: (value as any)?.category,
       request: url
         ? {
             ...restRequest,
@@ -59,7 +85,7 @@ function normalizeCases(rawCases: unknown[]): StoredTestCase[] {
           }
         : undefined,
       expect: {
-        status: value.expectedStatus ?? value.expect?.status,
+        status: (value.expect?.status ?? (value as any)?.expectedStatus) ?? undefined,
       },
     };
   });
@@ -118,7 +144,7 @@ export async function POST(req: NextRequest) {
 
   const cases = normalizeCases(rawCases);
 
-  const suite = {
+  const suite: SuitePayload = {
     name: suiteRecord.name,
     version: suiteRecord.version,
     cases,
@@ -151,18 +177,22 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const rawResult = await runSuite({
-      suite,
+    const runner = runSuite as unknown as (
+      suiteId: string,
+      suite: SuitePayload,
+      options: { baseUrl: string }
+    ) => Promise<any>;
+
+    const rawResult = await runner(suiteRecord.id, suite, {
       baseUrl,
-      actor,
     });
     await persistArtifacts(rawResult);
 
     const derivedSummary = rawResult.summary ?? {
       total: rawResult.results?.length ?? suite.cases.length,
-      passed: rawResult.results?.filter((r) => r.status === 'passed')?.length ?? 0,
-      failed: rawResult.results?.filter((r) => r.status !== 'passed')?.length ?? 0,
-      skipped: rawResult.results?.filter((r) => r.status === 'skipped')?.length ?? 0,
+      passed: rawResult.results?.filter((r: any) => r.status === 'passed')?.length ?? 0,
+      failed: rawResult.results?.filter((r: any) => r.status !== 'passed')?.length ?? 0,
+      skipped: rawResult.results?.filter((r: any) => r.status === 'skipped')?.length ?? 0,
     };
     const startedAtMs = rawResult.startedAt ? new Date(rawResult.startedAt).getTime() : undefined;
     const finishedAtMs = rawResult.finishedAt ? new Date(rawResult.finishedAt).getTime() : undefined;
@@ -175,19 +205,32 @@ export async function POST(req: NextRequest) {
     };
 
     const runIdentifier = (rawResult as Record<string, any>)?.runId ?? crypto.randomUUID();
-    const normalizedResult = {
+    const caseSnapshots: CaseSnapshot[] = (rawResult.results ?? []).map((test: any) => ({
+      id: test.id,
+      name: test.name,
+      status: test.status,
+      message: test.message ?? null,
+      response: test.response
+        ? {
+            status: test.response.status ?? null,
+            body: test.response.body ?? null,
+          }
+        : null,
+    }));
+
+    const normalizedResult: Prisma.JsonObject = {
       suiteId: suiteRecord.id,
       runId: runIdentifier,
-      startedAt: rawResult.startedAt,
-      finishedAt: rawResult.finishedAt,
-      summary,
-      cases: (rawResult.results ?? []).map((test) => ({
-        id: test.id,
-        name: test.name,
-        status: test.status,
-        message: test.message,
-        response: test.response,
-      })),
+      startedAt: rawResult.startedAt ?? null,
+      finishedAt: rawResult.finishedAt ?? null,
+      summary: {
+        total: summary.total,
+        passed: summary.passed,
+        failed: summary.failed,
+        skipped: summary.skipped,
+        durationMs: summary.durationMs ?? null,
+      } as Prisma.JsonObject,
+      cases: caseSnapshots as unknown as Prisma.JsonValue,
     };
 
     await prisma.testRun.create({
@@ -198,24 +241,24 @@ export async function POST(req: NextRequest) {
         results: normalizedResult,
       },
     });
-    const tracePayloads =
-      normalizedResult.cases?.map((caseResult) => ({
-        projectId: suiteRecord.projectId,
-        requestMeta: {
-          suiteId: suiteRecord.id,
-          suiteName: suiteRecord.name,
-          caseId: caseResult.id,
-          caseName: caseResult.name,
-          runId: normalizedResult.runId,
-          expectedStatus: suite.cases.find((c) => c.id === caseResult.id)?.expect?.status ?? null,
-        },
-        responseMeta: {
-          status: caseResult.response?.status ?? null,
-          body: caseResult.response?.body ?? null,
-          baseUrl,
-        },
-        verdict: caseResult.status === 'passed' ? 'pass' : 'fail',
-      })) ?? [];
+    const tracePayloads = caseSnapshots.map((caseResult) => ({
+      projectId: suiteRecord.projectId,
+      requestMeta: {
+        suiteId: suiteRecord.id,
+        suiteName: suiteRecord.name,
+        caseId: caseResult.id,
+        caseName: caseResult.name,
+        runId: runIdentifier,
+        expectedStatus:
+          suite.cases.find((c: StoredTestCase) => c.id === caseResult.id)?.expect?.status ?? null,
+      } as Prisma.InputJsonValue,
+      responseMeta: {
+        status: caseResult.response?.status ?? null,
+        body: caseResult.response?.body ?? null,
+        baseUrl,
+      } as Prisma.InputJsonValue,
+      verdict: caseResult.status === 'passed' ? 'pass' : 'fail',
+    }));
     if (tracePayloads.length > 0) {
       await prisma.$transaction(
         tracePayloads.map((payload) =>
@@ -235,7 +278,7 @@ export async function POST(req: NextRequest) {
     };
     const touchedPhases = new Set<PhaseKey>();
     for (const testCase of suite.cases) {
-      const category = (testCase as any)?.category ?? 'core';
+      const category = testCase.category ?? 'core';
       const phase = categoryPhaseMap[category] ?? 'core';
       if (enabledPhaseSet.has(phase)) {
         touchedPhases.add(phase);

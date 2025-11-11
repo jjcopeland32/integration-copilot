@@ -58,7 +58,7 @@ export const planRouter = router({
           done: counters.done,
           inProgress: counters.inProgress,
           blocked: counters.blocked,
-          items: items.map((item) => ({
+          items: items.map((item: any) => ({
             id: item.id,
             title: item.title,
             status: item.status,

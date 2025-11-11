@@ -154,7 +154,7 @@ export default function PlanPage() {
               <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">No checklist items yet.</div>
             ) : (
               <div className="space-y-2">
-                {phase.items.map((item) => {
+                {phase.items.map((item: any) => {
                   const status = statusStyles[item.status] ?? statusStyles.TODO;
                   const StatusIcon = status.icon;
                   return (
