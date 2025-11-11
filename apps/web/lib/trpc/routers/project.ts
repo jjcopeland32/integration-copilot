@@ -102,8 +102,43 @@ export const projectRouter = router({
   delete: publicProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.prisma.project.delete({
-        where: { id: input.id },
+      await ctx.prisma.$transaction(async (tx) => {
+        const suites = await tx.testSuite.findMany({
+          where: { projectId: input.id },
+          select: { id: true },
+        });
+        const suiteIds = suites.map((suite) => suite.id);
+
+        if (suiteIds.length > 0) {
+          await tx.testRun.deleteMany({
+            where: { suiteId: { in: suiteIds } },
+          });
+        }
+
+        await tx.testSuite.deleteMany({
+          where: { id: { in: suiteIds } },
+        });
+        await tx.mockInstance.deleteMany({
+          where: { projectId: input.id },
+        });
+        await tx.planItem.deleteMany({
+          where: { projectId: input.id },
+        });
+        await tx.report.deleteMany({
+          where: { projectId: input.id },
+        });
+        await tx.trace.deleteMany({
+          where: { projectId: input.id },
+        });
+        await tx.blueprint.deleteMany({
+          where: { projectId: input.id },
+        });
+        await tx.spec.deleteMany({
+          where: { projectId: input.id },
+        });
+        await tx.project.delete({
+          where: { id: input.id },
+        });
       });
       return { success: true };
     }),
