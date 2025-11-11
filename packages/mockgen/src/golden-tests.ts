@@ -170,6 +170,7 @@ export class GoldenTestGenerator {
         path: endpoint.path,
         headers: {
           'Content-Type': 'application/json',
+          'x-simulate-invalid': 'missing-body',
         },
         body: {},
       },

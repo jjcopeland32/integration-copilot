@@ -142,17 +142,17 @@ export class MockServer {
       return true;
     }
 
+    const simulateInvalid = req.headers['x-simulate-invalid'];
+    if (simulateInvalid && (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')) {
+      res.status(400).json({
+        error: 'Invalid input',
+        message: 'Missing required fields',
+      });
+      return true;
+    }
+
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
       const body = req.body ?? {};
-      const hasBody = body && Object.keys(body).length > 0;
-      if (!hasBody) {
-        res.status(400).json({
-          error: 'Invalid input',
-          message: 'Missing required fields',
-        });
-        return true;
-      }
-
       if (typeof body.currency === 'string' && body.currency.toUpperCase() === 'INVALID') {
         res.status(400).json({
           error: 'Invalid parameter',
