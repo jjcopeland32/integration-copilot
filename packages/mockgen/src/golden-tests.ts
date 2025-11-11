@@ -149,7 +149,7 @@ export class GoldenTestGenerator {
         },
         body: this.generateSampleBody(endpoint),
       },
-      expectedStatus: 200,
+      expectedStatus: endpoint.method === 'POST' ? 201 : 200,
       assertions: [
         {
           type: 'idempotency',
