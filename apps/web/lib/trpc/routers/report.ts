@@ -53,6 +53,15 @@ export const reportRouter = router({
 
       return reports.map((report) => {
         const meta = parseMeta(report.meta);
+        const metrics = meta?.metrics;
+        const testsPassed = metrics?.passedTests ?? 0;
+        const testsTotal = metrics?.totalTests ?? 0;
+        const phaseCompletion = metrics?.phaseCompletion ?? {};
+        const phaseValues = Object.values(phaseCompletion);
+        const planCompletion =
+          phaseValues.length > 0
+            ? Math.round(phaseValues.reduce((sum, value) => sum + value, 0) / phaseValues.length)
+            : 0;
         return {
           id: report.id,
           projectId: report.projectId,
@@ -63,6 +72,9 @@ export const reportRouter = router({
           score: meta?.metrics?.testPassRate ?? 0,
           risk: normalizeRisk(meta),
           signedAt: report.signedAt,
+          testsPassed,
+          testsTotal,
+          planCompletion,
         };
       });
     }),

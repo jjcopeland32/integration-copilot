@@ -91,14 +91,22 @@ export default function ReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <div className="flex gap-6 text-sm">
-                    <div>
-                      <span className="text-gray-500">Score:</span>{' '}
-                      <span className="font-medium">{report.score ?? 0}%</span>
+                  <div className="grid gap-4 text-sm md:grid-cols-3">
+                    <div className="rounded-2xl bg-gray-50 px-4 py-2">
+                      <p className="text-xs uppercase text-gray-500">Pass Rate</p>
+                      <p className="text-lg font-semibold text-gray-900">{report.score ?? 0}%</p>
                     </div>
-                    <div>
-                      <span className="text-gray-500">Status:</span>{' '}
-                      <span className="font-medium">{report.status}</span>
+                    <div className="rounded-2xl bg-gray-50 px-4 py-2">
+                      <p className="text-xs uppercase text-gray-500">Tests</p>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {report.testsPassed ?? 0}/{report.testsTotal ?? 0} passed
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 px-4 py-2">
+                      <p className="text-xs uppercase text-gray-500">Plan Completion</p>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {report.planCompletion ?? 0}%
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-2">

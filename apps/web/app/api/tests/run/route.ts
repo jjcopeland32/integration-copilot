@@ -216,15 +216,26 @@ export async function POST(req: NextRequest) {
         )
       );
     }
-    await prisma.planItem.updateMany({
-      where: { projectId: suiteRecord.projectId },
-      data: {
-        status:
-          summary.failed && summary.failed > 0
-            ? PlanStatus.IN_PROGRESS
-            : PlanStatus.DONE,
-      },
-    });
+    const categoryPhaseMap: Record<string, string> = {
+      auth: 'auth',
+      webhook: 'webhooks',
+    };
+    const touchedPhases = new Set<string>();
+    for (const testCase of suite.cases) {
+      const category = (testCase as any)?.category ?? 'core';
+      const phase = categoryPhaseMap[category] ?? 'core';
+      touchedPhases.add(phase);
+    }
+    const planStatus =
+      summary.failed && summary.failed > 0 ? PlanStatus.IN_PROGRESS : PlanStatus.DONE;
+    await Promise.all(
+      Array.from(touchedPhases).map((phase) =>
+        prisma.planItem.updateMany({
+          where: { projectId: suiteRecord.projectId, phase },
+          data: { status: planStatus },
+        })
+      )
+    );
 
     return NextResponse.json({ ok: true, result: normalizedResult });
   } catch (error) {

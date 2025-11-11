@@ -22,8 +22,8 @@
 - **Golden Tests** – 10 comprehensive suites (38 tests) stored per project and runnable via `/api/tests/run`
 - **Project Lifecycle** – Create/delete projects, attach specs, and manage active project context
 - **Trace Validation** – Request/response validation and logging (scoped to each project)
-- **Plan Board** – 5-phase integration roadmap backed by real `PlanItem` records
-- **Readiness Reports** – Auto-generated go-live assessment with live metrics + markdown viewer
+- **Plan Board** – 5-phase integration roadmap backed by real `PlanItem` records, auto-updates when telemetry meets criteria
+- **Readiness Reports** – Auto-generated go-live assessment with live metrics from stored tests/traces + markdown viewer
 
 ### 🎨 Modern UI
 - ✨ Smooth animations and transitions
@@ -79,9 +79,7 @@ curl -sS -X POST http://localhost:3000/api/trace \
 
 The server will persist a redacted payload (card numbers, CVVs, SSNs, and passwords are scrubbed by default) and return `{ ok: true }` when the signature is valid.
 
-### 🧪 Run Golden Tests
-
-- **UI:** Visit [`/specs`](http://localhost:3000/specs), load the Stripe-style or Todo sample spec, generate mocks/tests, then go to `/tests` and click **Run All**. Suites execute against the auto-started mock for that project.
+- **UI:** Visit [`/specs`](http://localhost:3000/specs), load the Stripe-style or Todo sample spec, generate mocks/tests, then go to `/tests` and click **Run All**. Suites execute against the auto-started mock for that project, emit trace rows, and update the plan board automatically.
 - **CLI:**
 
   ```bash
@@ -111,7 +109,7 @@ On the `/specs` page press **Load Sample Specs**. The Spec Engine ingests the St
 ### 2. Run Golden Tests
 1. Navigate to **Tests** (`/tests`)
 2. Run a single suite or **Run All Tests**
-3. Latest pass/fail counts persist per project; click through to investigate
+3. Latest pass/fail counts persist per project and emit telemetry traces/evidence
 
 ### 3. Explore Features
 - **Dashboard** – Overview stats and activity
@@ -211,10 +209,11 @@ integration-copilot/
 
 ## 🔮 Roadmap (Next Steps)
 
-1. **Mock Lifecycle Controls** – delete/reset actions, shared ports per spec, and clearer status indicators for long-running mocks.
-2. **Golden Test Insights** – surface per-case logs + diffs, attach failures to plan items, and expose a run history timeline.
-3. **Telemetry & Evidence** – emit trace rows for mock/test traffic and auto-advance plan board/readiness metrics when criteria are met.
-4. **SDK & Spec Sync** – allow the telemetry SDK/webhook bridge to push OpenAPI updates + runtime events straight into projects.
+1. **Mock Lifecycle Controls** – shared port pooling and health indicators for long-running mocks.
+2. **Golden Test Insights** – deeper per-case artifacts, diffs, and history.
+3. **Plan Board Configuration** – enable/disable phases per integration scope (e.g., optional webhooks/UAT) and capture scenario/benchmark requirements.
+4. **Telemetry & Evidence** – expand trace emitters (UAT scenarios, manual evidence) and auto-advance plan/report metrics based on project-specific criteria.
+5. **SDK & Spec Sync** – allow the telemetry SDK/webhook bridge to push OpenAPI updates + runtime events straight into projects.
 
 Completing these steps turns today’s automated scaffolding into a fully instrumented, evidence-driven E2E workflow.
 

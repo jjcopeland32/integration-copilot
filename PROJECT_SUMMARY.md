@@ -165,7 +165,7 @@ if (!result.valid) {
 - **Auth** → **Core** → **Webhooks** → **UAT** → **Cert**
 - Exit criteria tracking
 - Evidence uploads (immutable audit log)
-- Progress tracking per phase
+- Progress tracking per phase with telemetry-driven updates
 - Owner assignment & due dates
 - Auto-seeded per project via orchestrator helper
 
@@ -181,7 +181,7 @@ await planBoard.uploadEvidence(itemId, { type: 'screenshot', url: '...' });
 **Production Go-Live Assessment**
 
 **Metrics:**
-- Test pass rate
+- Test pass rate (from stored `TestRun` summaries)
 - Error rate
 - Average latency
 - Phase completion

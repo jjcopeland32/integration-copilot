@@ -157,13 +157,13 @@ The app will redirect to the dashboard automatically.
 ### Plan Board
 - 5-phase integration roadmap backed by Prisma `PlanItem`s
 - Auth → Core → Webhooks → UAT → Cert
-- Auto-initialized per project
-- Evidence uploads
+- Auto-initialized per project, auto-updates when telemetry/evidence meets criteria
+- Evidence uploads and future per-phase configuration
 
 ### Readiness Reports
 - Production go-live assessment
 - Risk assessment (Critical/High/Medium/Low)
-- Test pass rate metrics sourced from stored runs
+- Metrics sourced from stored `TestRun` + `Trace` evidence
 - Markdown viewer + e-signature support
 
 ---

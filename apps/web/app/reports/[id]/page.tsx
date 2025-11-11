@@ -31,6 +31,18 @@ export default async function ReportDetailPage({ params }: { params: { id: strin
   }
 
   const createdAt = new Date(report.createdAt).toLocaleString();
+  const metrics = report.metrics ?? {
+    testPassRate: 0,
+    totalTests: 0,
+    passedTests: 0,
+    failedTests: 0,
+    averageLatencyMs: 0,
+    errorRate: 0,
+    phaseCompletion: {},
+  };
+  const phaseEntries = Object.entries(metrics.phaseCompletion ?? {});
+  const risks = report.risks ?? [];
+  const recommendations = report.recommendations ?? [];
 
   return (
     <div className="space-y-8">
@@ -66,6 +78,101 @@ export default async function ReportDetailPage({ params }: { params: { id: strin
           </Button>
         </div>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm uppercase text-gray-500">Pass Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-gray-900">{metrics.testPassRate ?? 0}%</p>
+            <p className="text-sm text-gray-500">
+              {metrics.passedTests ?? 0}/{metrics.totalTests ?? 0} tests passed
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm uppercase text-gray-500">Error Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-gray-900">{metrics.errorRate ?? 0}%</p>
+            <p className="text-sm text-gray-500">Based on latest trace verdicts</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm uppercase text-gray-500">Avg Latency</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-gray-900">{metrics.averageLatencyMs ?? 0} ms</p>
+            <p className="text-sm text-gray-500">Across recent traces</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Phase Completion</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {phaseEntries.length === 0 ? (
+            <p className="text-sm text-gray-500">No plan items yet. Initialize the plan board to track phases.</p>
+          ) : (
+            phaseEntries.map(([phase, value]) => (
+              <div key={phase}>
+                <div className="flex items-center justify-between text-sm font-medium text-gray-600">
+                  <span className="uppercase tracking-wide">{phase}</span>
+                  <span>{value}%</span>
+                </div>
+                <div className="mt-1 h-2 rounded-full bg-gray-200">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-600"
+                    style={{ width: `${value}%` }}
+                  />
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {risks.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Risks</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {risks.map((risk, index) => (
+              <div key={`${risk.category}-${index}`} className="rounded-2xl border border-gray-100 p-4">
+                <div className="flex items-center gap-3">
+                  <Badge variant={riskVariant(risk.severity.toUpperCase())}>{risk.severity.toUpperCase()}</Badge>
+                  <p className="font-semibold text-gray-900">{risk.category}</p>
+                </div>
+                <p className="mt-2 text-sm text-gray-600">{risk.description}</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  <span className="font-medium">Recommendation:</span> {risk.recommendation}
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {recommendations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Next Actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="list-disc space-y-1 pl-5 text-sm text-gray-600">
+              {recommendations.map((rec, index) => (
+                <li key={`${rec}-${index}`}>{rec}</li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
