@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Server, Play, Square, Download, Activity } from 'lucide-react';
+import { Server, Play, Square, Download, Activity, Trash2 } from 'lucide-react';
 import { useProjectContext } from '@/components/project-context';
 import { trpc } from '@/lib/trpc/client';
 import { useMemo } from 'react';
@@ -34,6 +34,12 @@ export default function MocksPage() {
   const totalMocks = mocks.length;
   const runningMocks = useMemo(() => mocks.filter((mock) => mock.status === 'RUNNING').length, [mocks]);
 
+  const deleteMutation = trpc.mock.delete.useMutation({
+    onSuccess: async () => {
+      await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
+    },
+  });
+
   const handleDownload = (mock: any) => {
     const collection = mock?.config?.postmanCollection;
     if (!collection) return;
@@ -46,6 +52,13 @@ export default function MocksPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleDelete = (mock: any) => {
+    if (!window.confirm(`Delete mock service at ${mock.baseUrl}? This cannot be undone.`)) {
+      return;
+    }
+    deleteMutation.mutate({ id: mock.id });
   };
 
   if (!projectId) {
@@ -89,9 +102,17 @@ export default function MocksPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {mocks.map((mock, index) => {
             const running = mock.status === 'RUNNING';
-            const gradient =
-              running ? 'from-green-500 to-emerald-500' : 'from-blue-500 to-cyan-500';
+            const gradient = running ? 'from-green-500 to-emerald-500' : 'from-blue-500 to-cyan-500';
             const routes = mock.config?.routes?.length ?? 0;
+            const specLabel = mock.config?.specName ?? mock.name ?? `Mock #${index + 1}`;
+            const port = (() => {
+              try {
+                const url = new URL(mock.baseUrl);
+                return url.port || (url.protocol === 'https:' ? '443' : '80');
+              } catch {
+                return mock.baseUrl?.split(':').pop() ?? '—';
+              }
+            })();
             return (
               <Card key={mock.id} className="card-hover animate-in" style={{ animationDelay: `${index * 100}ms` }}>
                 <CardHeader>
@@ -99,11 +120,21 @@ export default function MocksPage() {
                     <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg`}>
                       <Server className="h-6 w-6 text-white" />
                     </div>
-                    <Badge variant={running ? 'success' : 'default'}>
-                      {mock.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={running ? 'success' : 'default'}>{mock.status}</Badge>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-gray-500 hover:text-red-500"
+                        onClick={() => handleDelete(mock)}
+                        disabled={deleteMutation.isLoading}
+                        title="Delete mock"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <CardTitle className="text-xl">{mock.name}</CardTitle>
+                  <CardTitle className="text-xl">{specLabel}</CardTitle>
                   <p className="text-sm text-gray-500">{mock.baseUrl}</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -112,7 +143,7 @@ export default function MocksPage() {
                       <Activity className="h-4 w-4 text-blue-600" />
                       <span>{routes} routes</span>
                     </div>
-                    <span className="text-xs text-gray-400">Port {mock.baseUrl?.split(':').pop()}</span>
+                    <span className="text-xs text-gray-400">Port {port}</span>
                   </div>
                   <div className="flex gap-2">
                     <Button

@@ -53,4 +53,13 @@ export const mockRouter = router({
         data: { status: MockStatus.STOPPED },
       });
     }),
+
+  delete: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await stopMockServer(input.id);
+      return ctx.prisma.mockInstance.delete({
+        where: { id: input.id },
+      });
+    }),
 });

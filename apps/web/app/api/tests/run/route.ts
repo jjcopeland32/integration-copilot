@@ -141,10 +141,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await runSuite({
-      suite,
+    const result = await runSuite(suiteRecord.id, suite, {
       baseUrl,
-      actor,
     });
     await persistArtifacts(result);
     await prisma.testRun.create({
@@ -152,14 +150,7 @@ export async function POST(req: NextRequest) {
         suiteId: suiteRecord.id,
         actor,
         env: baseUrl,
-        results: {
-          total: result.summary.total,
-          passed: result.summary.passed,
-          failed: result.summary.failed,
-          startedAt: result.startedAt,
-          finishedAt: result.finishedAt,
-          runId: result.runId,
-        },
+        results: result,
       },
     });
 

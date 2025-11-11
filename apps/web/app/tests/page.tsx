@@ -9,6 +9,36 @@ import { TestTube, Play, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useProjectContext } from '@/components/project-context';
 
+type CaseResult = {
+  id: string;
+  name: string;
+  status: 'passed' | 'failed';
+  errors?: string[];
+  repeats?: Array<{
+    repeatIndex: number;
+    attempts: Array<{
+      status: number;
+      durationMs?: number;
+      body?: unknown;
+      timestamp?: number;
+    }>;
+  }>;
+};
+
+type SuiteRunResult = {
+  summary?: {
+    total: number;
+    passed: number;
+    failed: number;
+    durationMs?: number;
+  };
+  cases?: CaseResult[];
+  startedAt?: string;
+  finishedAt?: string;
+  runId?: string;
+  suiteId?: string;
+};
+
 export default function TestsPage() {
   const { projectId, projectName } = useProjectContext();
   const utils = trpc.useUtils();
@@ -108,10 +138,13 @@ export default function TestsPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {suites.map((suite, index) => {
-            const latestRun = suite.runs?.[0] as { results?: Record<string, any>; createdAt?: string } | undefined;
+            const latestRun = suite.runs?.[0] as { results?: SuiteRunResult; createdAt?: string } | undefined;
             const caseCount = Array.isArray(suite.cases as unknown[]) ? (suite.cases as unknown[]).length : 0;
-            const passed = latestRun?.results?.passed ?? 0;
-            const failed = latestRun?.results?.failed ?? 0;
+            const summary = latestRun?.results?.summary;
+            const passed = summary?.passed ?? 0;
+            const failed = summary?.failed ?? 0;
+            const caseResults = Array.isArray(latestRun?.results?.cases) ? (latestRun?.results?.cases as CaseResult[]) : [];
+            const finishedAt = latestRun?.results?.finishedAt ?? latestRun?.createdAt;
             const isRunning = runningSuite === suite.id;
 
             return (
@@ -144,7 +177,14 @@ export default function TestsPage() {
                     )}
                   </div>
                   <CardTitle className="text-lg">{suite.name}</CardTitle>
-                  <p className="text-sm text-gray-600">{caseCount} cases</p>
+                  <p className="text-sm text-gray-600">
+                    {caseCount} cases
+                    {finishedAt && (
+                      <span className="text-xs text-gray-400 block">
+                        Last run {new Date(finishedAt).toLocaleString()}
+                      </span>
+                    )}
+                  </p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {latestRun && (
@@ -183,6 +223,34 @@ export default function TestsPage() {
                       </>
                     )}
                   </Button>
+                  {caseResults.length > 0 && (
+                    <div className="mt-2 space-y-2 rounded-2xl border border-gray-100 bg-gray-50/80 p-3 max-h-60 overflow-auto">
+                      {caseResults.map((caseResult) => {
+                        const latestAttempt = caseResult.repeats?.[caseResult.repeats.length - 1]?.attempts?.slice(-1)?.[0];
+                        const errorMessage = caseResult.errors?.[0];
+                        return (
+                          <div
+                            key={caseResult.id}
+                            className="flex items-start justify-between gap-3 rounded-xl bg-white p-3 shadow-inner"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">{caseResult.name}</p>
+                              <p className="text-xs text-gray-500">
+                                {errorMessage
+                                  ? errorMessage
+                                  : latestAttempt
+                                  ? `Status ${latestAttempt.status}`
+                                  : 'All assertions satisfied'}
+                              </p>
+                            </div>
+                            <Badge variant={caseResult.status === 'passed' ? 'success' : 'warning'}>
+                              {caseResult.status.toUpperCase()}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );

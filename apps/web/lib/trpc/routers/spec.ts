@@ -209,6 +209,8 @@ export const specRouter = router({
           baseUrl,
           status: MockStatus.STOPPED,
           config: {
+            specId: specRecord.id,
+            specName: specRecord.name,
             routes,
             postmanCollection,
             settings,
