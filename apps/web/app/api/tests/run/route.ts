@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runSuite } from '@integration-copilot/testkit';
 import { RBACError, requireRole } from '@/lib/rbac';
 import { prisma } from '@/lib/prisma';
-import { Actor, MockStatus } from '@prisma/client';
+import { Actor, MockStatus, PlanStatus } from '@prisma/client';
 import { ensureMockServer } from '@/lib/mock-server-manager';
 
 export const dynamic = 'force-dynamic';
@@ -216,6 +216,15 @@ export async function POST(req: NextRequest) {
         )
       );
     }
+    await prisma.planItem.updateMany({
+      where: { projectId: suiteRecord.projectId },
+      data: {
+        status:
+          summary.failed && summary.failed > 0
+            ? PlanStatus.IN_PROGRESS
+            : PlanStatus.DONE,
+      },
+    });
 
     return NextResponse.json({ ok: true, result: normalizedResult });
   } catch (error) {
