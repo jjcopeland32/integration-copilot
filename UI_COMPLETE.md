@@ -31,22 +31,22 @@ A complete, production-ready web application with:
 - Delete confirmation + gradients
 
 ### 3. Project Detail (`/projects/[id]`)
-- Project overview with status badge
-- Quick action cards (Import Spec modal, Start Mock soon, Report soon)
+- Project overview with status badge + Prisma-backed metadata
+- Quick action cards: inline spec import, automation CTA (“Generate Mock & Tests”), roadmap/report previews
 - Specs list filtered to the project
 - Manage Specs CTA links to `/specs?projectId=...`
 - Delete project confirmation modal
 
 ### 4. Mocks (`/mocks`)
-- Mock service list
-- Start/stop controls
-- Postman collection download
-- Request statistics
+- Mock service list sourced from Prisma
+- Start/stop controls that spin actual Express servers up/down
+- Postman collection download based on generated config
+- Request statistics (coming from stored mock metadata)
 
 ### 5. Tests (`/tests`)
-- Test suite list
-- Run test controls
-- Pass/fail statistics
+- Test suite list per project (persisted `TestSuite` rows)
+- Run test controls wired to `/api/tests/run`
+- Pass/fail statistics backed by latest `TestRun`
 - Golden test categories (10 baseline tests)
 
 ### 6. Traces (`/traces`)
@@ -57,15 +57,15 @@ A complete, production-ready web application with:
 
 ### 7. Plan Board (`/plan`)
 - 5-phase kanban board (Auth → Core → Webhooks → UAT → Cert)
-- Progress tracking
+- Progress tracking sourced from real `PlanItem` rows
 - Item status (TODO, IN_PROGRESS, DONE, BLOCKED)
 - Overall completion percentage
 
 ### 8. Reports (`/reports`)
-- Readiness report list
-- Risk assessment badges
-- Sign report functionality
-- Download PDF
+- Readiness report list (auto-generated if none exist)
+- Risk assessment badges + readiness state
+- Sign/download controls (signing UX pending enablement)
+- Markdown preview link to `/reports/[id]`
 
 ### 9. Report Detail (`/reports/[id]`)
 - Full markdown report viewer
@@ -94,11 +94,11 @@ A complete, production-ready web application with:
    - `list` / `get` - Project-aware spec queries
    - `importFromUrl` / `importFromObject` - Import & normalize specs
    - `loadSamples` - Stripe/Todo starter specs
-   - `generateBlueprint` / `generateMock` / `generateTests`
+   - `generateBlueprint` / `generateMock` / `generateTests` (mock generation now spins Express servers + stores config)
 
 3. **Mock Router** (`lib/trpc/routers/mock.ts`)
    - `list` / `get` - View mock instances
-   - `start` / `stop` - Toggle mock server state
+   - `start` / `stop` - Toggle mock server state (delegates to server manager)
 
 4. **Plan Router** (`lib/trpc/routers/plan.ts`)
    - `initialize` - Initialize 5-phase plan board
@@ -128,8 +128,7 @@ A complete, production-ready web application with:
 - Responsive design
 
 **Pages:**
-- All 9 pages implemented with mock data
-- Ready to connect to tRPC queries/mutations
+- All 9 pages wired to tRPC/Prisma data using the active project context
 
 ---
 
@@ -190,55 +189,13 @@ Route (app)                              Size     First Load JS
 
 ## 🔌 Connecting UI to Backend
 
-The UI is currently using **mock data**. To connect to real backend:
+The app already consumes live tRPC/Prisma data (project context, mocks, tests, plan board, reports). To customize the backend hook-up:
 
-### 1. Update tRPC Client Context
+1. **Context tweaks** – Update `lib/trpc/server.ts` if you need to expose org/user metadata from a different auth provider.
+2. **Query expansion** – Any page can access the shared `useProjectContext()`; add new tRPC procedures and React Query hooks to surface more project-scoped data.
+3. **Mutations** – Follow the existing patterns (e.g., `spec.generateMock`, `mock.start`, `report.list`) when wiring new calls; optimistic updates/invalidation happen via `trpc.useUtils()`.
 
-Edit `lib/trpc/server.ts`:
-
-```typescript
-export const createContext = async (): Promise<Context> => {
-  // Get session from NextAuth
-  const session = await auth();
-  
-  return {
-    prisma,
-    userId: session?.user?.id,
-    orgId: session?.user?.orgId, // Add to session
-  };
-};
-```
-
-### 2. Replace Mock Data with tRPC Queries
-
-Example for Projects page:
-
-```typescript
-// Before (mock data)
-const projects = [
-  { id: '1', name: 'Stripe', ... }
-];
-
-// After (tRPC query)
-const { data: projects } = trpc.project.list.useQuery({
-  orgId: 'your-org-id'
-});
-```
-
-### 3. Add Mutations for Actions
-
-Example for creating a project:
-
-```typescript
-const createProject = trpc.project.create.useMutation();
-
-const handleCreate = async () => {
-  await createProject.mutateAsync({
-    orgId: 'your-org-id',
-    name: 'New Project'
-  });
-};
-```
+This keeps the UI fully type-safe while letting you extend workflows without rewriting scaffolding.
 
 ---
 
@@ -372,35 +329,30 @@ const handleCreate = async () => {
 
 ## 🚧 Next Steps (Optional Enhancements)
 
-### Phase 1: Connect to Backend
-1. Set up PostgreSQL database
-2. Run Prisma migrations
-3. Seed initial data
-4. Replace mock data with tRPC queries
+### Phase 1: Mock Lifecycle
+1. Add delete/reset controls for mock instances
+2. Reuse ports per spec + show richer health indicators
+3. Display running mock mappings on the dashboard
 
-### Phase 2: Authentication
-1. Add OAuth providers
-2. Implement user registration
-3. Add role-based access control
-4. Protect routes
+### Phase 2: Golden Test Insights
+1. Surface per-case results/logs in `/tests`
+2. Attach failures to plan items with evidence links
+3. Persist/download artifacts for auditing
 
-### Phase 3: Real-time Features
-1. Add WebSocket for live updates
-2. Real-time trace streaming
-3. Live test execution
-4. Mock service status updates
+### Phase 3: Telemetry + Evidence
+1. Emit trace rows for mock/test traffic
+2. Auto-advance plan stages when evidence is captured
+3. Reflect readiness scores based on real runs
 
-### Phase 4: Advanced Features
-1. Spec diff viewer
-2. Blueprint editor
-3. Custom test builder
-4. Report customization
+### Phase 4: Spec/SDK Automation
+1. Accept SDK/webhook-delivered OpenAPI updates
+2. Auto-refresh mocks/tests when specs change
+3. Surface spec drift notifications
 
 ### Phase 5: Polish
-1. Loading states
-2. Error boundaries
-3. Toast notifications
-4. Keyboard shortcuts
+1. Fine-grained loading states + skeletons
+2. Toast/alert system for long-running actions
+3. Keyboard shortcuts + command palette
 
 ---
 

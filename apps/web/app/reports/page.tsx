@@ -102,9 +102,11 @@ export default function ReportsPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" disabled>
-                      View Report
-                    </Button>
+                    <Link href={`/reports/${report.id}`}>
+                      <Button variant="outline" size="sm">
+                        View Report
+                      </Button>
+                    </Link>
                     <Button variant="outline" size="sm" disabled>
                       <Download className="h-4 w-4 mr-2" />
                       Download

@@ -137,42 +137,43 @@ The app will redirect to the dashboard automatically.
 - Export as Markdown + JSON
 
 ### Mock Service
-- Generate deterministic mock API servers
-- Latency simulation
-- Rate limiting
-- Postman collection export
+- Generate deterministic mock API servers per project
+- Latency and rate-limit simulation baked into every instance
+- Auto-start Express servers on available ports (start/stop controls in UI)
+- Postman collection export and stored mock config for downstream tooling
 
 ### Golden Tests
-- 10 baseline tests for every integration
-- Authentication, idempotency, webhooks, etc.
-- Automated test generation
+- 10 baseline tests for every integration (38 cases total)
+- Authentication, idempotency, edge cases, retries, and error handling
+- Suites stored in Prisma and runnable via `/api/tests/run`
+- Results persisted as `TestRun` records for UI + reporting
 
 ### Validation & Traces
 - Request/response validation
 - Human-readable error messages
 - PII redaction
-- Trace storage with metadata
+- Trace storage with metadata (project-scoped)
 
 ### Plan Board
-- 5-phase integration roadmap
+- 5-phase integration roadmap backed by Prisma `PlanItem`s
 - Auth → Core → Webhooks → UAT → Cert
-- Progress tracking
+- Auto-initialized per project
 - Evidence uploads
 
 ### Readiness Reports
 - Production go-live assessment
 - Risk assessment (Critical/High/Medium/Low)
-- Test pass rate metrics
-- E-signature support
+- Test pass rate metrics sourced from stored runs
+- Markdown viewer + e-signature support
 
 ---
 
 ## 🔮 Roadmap
 
-1. **Project context across workflows** – Keep the selected project active while navigating Specs, Mocks, Tests, Traces, and Reports so leaders stay scoped to a single integration until they switch.
-2. **Mocks & Tests data wiring** – Replace the placeholder cards with live Prisma data (start/stop mock instances, run suites via `/api/tests/run`, surface artifacts & collections).
-3. **Traces/Plan/Reports telemetry** – Bind the Plan board, traces view, and readiness reports to stored runs so risk and progress visuals update automatically.
-4. **Spec automation** – Allow SDKs/webhooks to push OpenAPI specs directly into a project to keep the workspace synced with client APIs.
+1. **Mock lifecycle controls** – Delete/reset unused mock instances, recycle ports, and show richer health/status.
+2. **Golden test insights** – Expose per-case results, surface diffs/logs, and link failing cases to plan/trace evidence.
+3. **Telemetry-driven progress** – Emit trace rows for mock/test traffic and auto-update plan board + readiness metrics when evidence is captured.
+4. **Spec automation** – Allow SDKs/webhooks to push OpenAPI specs directly into the correct project to keep workspaces synchronized.
 
 These steps complete the path to enterprise-grade, end-to-end coverage.
 

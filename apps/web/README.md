@@ -1,8 +1,8 @@
 # Integration Copilot — Web App
 ## Quickstart
 1) `pnpm install`
-2) Copy `.env.example` to `.env.local` at repo root and set DATABASE_URL (or skip Prisma for now).
-3) `pnpm dev` (runs Next.js at http://localhost:3000)
-4) Open `/docs` to view project docs; POST to `/api/trace` to test ingest.
+2) Copy `.env.example` to `.env.local` at repo root and set `DATABASE_URL` (Postgres powers specs/mocks/tests/plan/report)
+3) `pnpm dev` (runs Next.js at http://localhost:3000 and spins up mock servers as you generate them)
+4) Visit `/specs` → **Load Sample Specs** → **Generate Mock & Tests** to light up the workspace, then explore `/tests`, `/plan`, `/reports`
 
-> Note: Prisma models are in `/prisma/schema.prisma`. Run `pnpm prisma:migrate` when ready.
+> Prisma models live in `/prisma/schema.prisma`. Run `pnpm prisma:migrate` whenever you change the schema; mock/test automation relies on those tables being up to date.

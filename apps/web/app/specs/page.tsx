@@ -53,15 +53,15 @@ function Hero({
           </div>
         </div>
         <div className="flex flex-col gap-3 rounded-2xl bg-white/10 p-6 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-white/20 p-3">
-              <Sparkles className="h-6 w-6 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl bg-white/20 p-3">
+                <Sparkles className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-white/60">Starter kit</p>
+                <p className="text-lg font-semibold">Stripe-style Payments + Todo APIs</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-white/60">Starter kit</p>
-              <p className="text-lg font-semibold">Petstore + Payments baselines</p>
-            </div>
-          </div>
           <Button
             variant="gradient"
             onClick={onLoadSamples}
@@ -81,7 +81,7 @@ function Hero({
             )}
           </Button>
           <p className="text-xs text-white/70">
-            Instantly primes your workspace with Stripe-like payments and Todo API specs for demos.
+            Instantly primes your workspace with Stripe payments-style and Todo API specs for demos.
           </p>
         </div>
       </div>

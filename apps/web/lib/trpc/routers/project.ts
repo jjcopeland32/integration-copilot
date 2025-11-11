@@ -31,7 +31,7 @@ export const projectRouter = router({
         include: {
           specs: true,
           mocks: true,
-          suites: { include: { runs: true } },
+          suites: { include: { runs: { orderBy: { createdAt: 'desc' } } } },
           planItems: true,
           reports: true,
           traces: true,
@@ -50,7 +50,7 @@ export const projectRouter = router({
         include: {
           specs: true,
           mocks: true,
-          suites: { include: { runs: true } },
+          suites: { include: { runs: { orderBy: { createdAt: 'desc' } } } },
           planItems: true,
           reports: true,
           traces: true,

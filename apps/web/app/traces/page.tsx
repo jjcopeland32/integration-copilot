@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

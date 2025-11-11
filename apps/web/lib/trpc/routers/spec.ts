@@ -6,6 +6,7 @@ import { MockGenerator, GoldenTestGenerator } from '@integration-copilot/mockgen
 import { sampleSpecs } from '../../sample-specs';
 import { ensureProjectForSpec, resolveProject } from '../../workspace';
 import { MockStatus, SpecKind } from '@prisma/client';
+import { ensureMockServer } from '../../mock-server-manager';
 import type { PrismaClient } from '@prisma/client';
 
 const normalizer = new SpecNormalizer();
@@ -193,11 +194,14 @@ export const specRouter = router({
       });
       const port = 3001 + mockCount;
       const baseUrl = `http://localhost:${port}`;
-      const { routes, postmanCollection } = mockGenerator.generate(normalized, {
+      const settings = {
         baseUrl,
         enableLatency: true,
         latencyMs: 50,
-      });
+        enableRateLimit: true,
+        rateLimit: 100,
+      };
+      const { routes, postmanCollection } = mockGenerator.generate(normalized, settings);
 
       const mock = await ctx.prisma.mockInstance.create({
         data: {
@@ -207,13 +211,23 @@ export const specRouter = router({
           config: {
             routes,
             postmanCollection,
+            settings,
           },
         },
       });
 
+      await ensureMockServer(mock);
+      await ctx.prisma.mockInstance.update({
+        where: { id: mock.id },
+        data: { status: MockStatus.RUNNING },
+      });
+
       return {
         success: true,
-        mock,
+        mock: {
+          ...mock,
+          status: MockStatus.RUNNING,
+        },
         routes,
       };
     }),
@@ -227,7 +241,11 @@ export const specRouter = router({
       if (!spec) throw new Error('Spec not found');
 
       const normalized = await ensureNormalizedSpec(ctx.prisma, input.specId);
-      const baseUrl = process.env.APP_URL ?? 'http://localhost:3000';
+      const runningMock = await ctx.prisma.mockInstance.findFirst({
+        where: { projectId: spec.projectId, status: MockStatus.RUNNING },
+        orderBy: { createdAt: 'desc' },
+      });
+      const baseUrl = runningMock?.baseUrl ?? process.env.APP_URL ?? 'http://localhost:3000';
       const tests = goldenTestGenerator.generate(normalized, baseUrl);
       const suiteName = `${extractSpecName(spec.raw, 'Integration')} Golden Tests`;
 

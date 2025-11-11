@@ -2,13 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Upload, Play, FileText, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Upload, Play, FileText, Trash2, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEffect, useState } from 'react';
 import { useProjectContext } from '@/components/project-context';
+
+type AutomationState = 'idle' | 'running' | 'success' | 'error';
 
 export default function ProjectDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -24,6 +26,8 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   const [showImport, setShowImport] = useState(false);
   const [importUrl, setImportUrl] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [automationLog, setAutomationLog] = useState<string[]>([]);
+  const [automationState, setAutomationState] = useState<AutomationState>('idle');
 
   const importSpec = trpc.spec.importFromUrl.useMutation({
     onSuccess: async () => {
@@ -36,6 +40,9 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
       setImportStatus(error.message || 'Failed to import spec.');
     },
   });
+
+  const mockAutomation = trpc.spec.generateMock.useMutation();
+  const testsAutomation = trpc.spec.generateTests.useMutation();
 
   useEffect(() => {
     if (project) {
@@ -52,6 +59,43 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   }
 
   const createdAt = new Date(project.createdAt).toLocaleDateString();
+  const automationDisabled = automationState === 'running' || project.specs.length === 0;
+  const automationStatusCopy: Record<AutomationState, string> = {
+    idle: 'Idle',
+    running: 'Running',
+    success: 'Ready',
+    error: 'Needs attention',
+  };
+
+  const runAutomation = async () => {
+    if (!project?.specs.length) {
+      setAutomationLog(['Import a spec before running automation.']);
+      return;
+    }
+
+    setAutomationState('running');
+    setAutomationLog([`Starting automation for ${project.specs.length} spec${project.specs.length > 1 ? 's' : ''}…`]);
+
+    try {
+      for (const spec of project.specs) {
+        setAutomationLog((prev) => [...prev, `Generating mock for ${spec.name}`]);
+        await mockAutomation.mutateAsync({ specId: spec.id });
+        setAutomationLog((prev) => [...prev, `Mock ready for ${spec.name}`]);
+
+        setAutomationLog((prev) => [...prev, `Generating golden tests for ${spec.name}`]);
+        await testsAutomation.mutateAsync({ specId: spec.id });
+        setAutomationLog((prev) => [...prev, `Golden tests stored for ${spec.name}`]);
+      }
+
+      setAutomationState('success');
+      setAutomationLog((prev) => [...prev, 'Automation complete. Specs now include mocks + tests.']);
+      await Promise.all([projectQuery.refetch(), utils.project.list.invalidate()]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Automation failed.';
+      setAutomationState('error');
+      setAutomationLog((prev) => [...prev, `Automation failed: ${message}`]);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -103,12 +147,62 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             <CardDescription>Upload OpenAPI specs scoped to this project</CardDescription>
           </CardHeader>
         </Card>
-        <Card className="hover:shadow-lg transition cursor-not-allowed opacity-60">
-          <CardHeader>
-            <Play className="mb-2 h-8 w-8 text-green-600" />
-            <CardTitle className="text-lg text-gray-900">Start Mock</CardTitle>
-            <CardDescription>Coming soon: start mock services from this view</CardDescription>
+        <Card className="hover:shadow-lg transition bg-white/95 backdrop-blur">
+          <CardHeader className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Play className="mb-2 h-8 w-8 text-green-600" />
+                <CardTitle className="text-lg text-gray-900">Generate Mock & Tests</CardTitle>
+                <CardDescription>Run automation across every spec in this project.</CardDescription>
+              </div>
+              <Badge variant={automationState === 'error' ? 'destructive' : automationState === 'success' ? 'success' : 'outline'}>
+                {automationStatusCopy[automationState]}
+              </Badge>
+            </div>
+            <Button
+              className="gap-2"
+              onClick={runAutomation}
+              disabled={automationDisabled}
+              variant={automationState === 'error' ? 'destructive' : 'default'}
+            >
+              {automationState === 'running' ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Automating…
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4" />
+                  {project.specs.length ? 'Generate assets' : 'Import a spec first'}
+                </>
+              )}
+            </Button>
+            <p className="text-sm text-gray-500">
+              We&apos;ll normalize each spec, create a mock service, and capture golden test suites in sequence so downstream
+              pages immediately light up.
+            </p>
           </CardHeader>
+          <CardContent>
+            {automationLog.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
+                No automation runs yet. Kick things off once specs are imported.
+              </div>
+            ) : (
+              <div className="space-y-2 rounded-2xl border border-gray-100 bg-gray-50/80 p-4 text-sm text-gray-700">
+                {automationLog.map((entry, index) => (
+                  <div key={`${entry}-${index}`} className="flex items-start gap-2">
+                    {entry.toLowerCase().includes('failed') ? (
+                      <AlertCircle className="mt-0.5 h-4 w-4 text-red-500" />
+                    ) : entry.toLowerCase().includes('complete') || entry.toLowerCase().includes('ready') ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-500" />
+                    ) : (
+                      <Loader2 className="mt-0.5 h-4 w-4 animate-spin text-blue-500" />
+                    )}
+                    <span>{entry}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
         </Card>
         <Card className="hover:shadow-lg transition cursor-not-allowed opacity-60">
           <CardHeader>

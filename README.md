@@ -16,14 +16,14 @@
 ## ✨ Features
 
 ### 🎯 Core Capabilities
-- **OpenAPI/AsyncAPI Import** - Load and normalize API specifications
-- **Blueprint Generation** - Automated integration documentation
-- **Mock Server** - Realistic API mocking with latency simulation
-- **Golden Tests** - 10 comprehensive test suites (38 tests total)
-- **Project Lifecycle** - Create/delete projects, attach specs, and manage status
-- **Trace Validation** - Request/response validation and logging
-- **Plan Board** - 5-phase integration roadmap tracking
-- **Readiness Reports** - Go-live assessment with risk scoring
+- **OpenAPI/AsyncAPI Import** – Load and normalize API specifications into Prisma
+- **Blueprint Generation** – Automated integration documentation per spec
+- **Mock Server Automation** – Generate + auto-start Express mocks with latency/rate-limit simulation
+- **Golden Tests** – 10 comprehensive suites (38 tests) stored per project and runnable via `/api/tests/run`
+- **Project Lifecycle** – Create/delete projects, attach specs, and manage active project context
+- **Trace Validation** – Request/response validation and logging (scoped to each project)
+- **Plan Board** – 5-phase integration roadmap backed by real `PlanItem` records
+- **Readiness Reports** – Auto-generated go-live assessment with live metrics + markdown viewer
 
 ### 🎨 Modern UI
 - ✨ Smooth animations and transitions
@@ -81,7 +81,7 @@ The server will persist a redacted payload (card numbers, CVVs, SSNs, and passwo
 
 ### 🧪 Run Golden Tests
 
-- **UI:** Visit [`/specs`](http://localhost:3000/specs), load the Petstore sample spec, then press **Run PAYMENTS Baseline** to execute the demo suite.
+- **UI:** Visit [`/specs`](http://localhost:3000/specs), load the Stripe-style or Todo sample spec, generate mocks/tests, then go to `/tests` and click **Run All**. Suites execute against the auto-started mock for that project.
 - **CLI:**
 
   ```bash
@@ -90,39 +90,36 @@ The server will persist a redacted payload (card numbers, CVVs, SSNs, and passwo
 
   The CLI resolves suites from `/api/tests/:suiteId`, runs the HTTP checks, prints a summary, and stores artifacts in `./.artifacts/testruns/`.
 
-### 🐾 Load Sample Spec (Petstore)
+### 🐾 Load Sample Specs
 
-On the `/specs` page press **Load Sample Spec (Petstore)**. The Spec Engine ingests the Petstore OpenAPI document, generates a markdown blueprint under `apps/web/public/blueprints/`, and stages a demo mock base URL for downstream tests.
+On the `/specs` page press **Load Sample Specs**. The Spec Engine ingests the Stripe payments + Todo APIs, generates blueprints, mocks, and tests scoped to your active project, and seeds the plan/report data.
 
 ---
 
 ## 🧪 Try It Out
 
 ### 1. Load Sample API Specs
-1. Navigate to **Specs** page (`/specs`)
-2. Click "Load Sample Specs"
-3. See Stripe Payment API and Todo API
+1. Navigate to **Specs** (`/specs`)
+2. Click **Load Sample Specs**
+3. Watch Stripe-style Payments + Todo specs appear for the active project
 
-### 1b. Manage Projects
-1. Visit **Projects** (`/projects`)
-2. Click **New Project** to open the modal (name, status, description)
-3. After creation, open the project card to:
-   - Import specs directly into that project via the inline modal
-   - Jump to `/specs?projectId=...` for advanced blueprint/mock/test flows
-   - Delete the project via the confirmation dialog when it’s no longer needed
+### 1b. Project Automation
+1. Visit **Projects** (`/projects`) and open a project card
+2. Press **Generate Mock & Tests** to run automation across every attached spec (new mocks auto-start)
+3. Use the inline “Manage Specs” button to jump back into `/specs?projectId=...`
 
 ### 2. Run Golden Tests
-1. Navigate to **Tests** page (`/tests`)
-2. Click "Run All Tests"
-3. Watch 10 test suites execute with results
+1. Navigate to **Tests** (`/tests`)
+2. Run a single suite or **Run All Tests**
+3. Latest pass/fail counts persist per project; click through to investigate
 
 ### 3. Explore Features
-- **Dashboard** - Overview stats and activity
-- **Projects** - Manage integration projects
-- **Mocks** - Mock API servers
-- **Traces** - Request/response logs
-- **Plan Board** - Integration roadmap
-- **Reports** - Readiness assessments
+- **Dashboard** – Overview stats and activity
+- **Projects** – Manage integration projects + automation
+- **Mocks** – Start/stop Express-based mock services
+- **Traces** – Request/response logs per project
+- **Plan Board** – Real 5-phase integration roadmap
+- **Reports** – Auto-generated readiness assessments
 
 ---
 
@@ -214,12 +211,12 @@ integration-copilot/
 
 ## 🔮 Roadmap (Next Steps)
 
-1. **Project-Scoped Navigation** – persist the selected project across Specs, Mocks, Tests, Traces, and Reports so leads can stay inside a single integration until they switch projects.
-2. **Mocks & Tests Wiring** – replace the remaining demo data on `/mocks` and `/tests` with the live Prisma/tRPC data (start/stop mock instances, run suites from `/api/tests/run`, surface artifacts).
-3. **Telemetry & Reports** – connect `/api/trace`, Plan Board, and Readiness Reports to the new data so phases, risks, and traces reflect real runs.
-4. **Spec Automation** – enable SDK/webhook-driven spec ingestion so client APIs can auto-register/refresh their OpenAPI docs under the right project.
+1. **Mock Lifecycle Controls** – delete/reset actions, shared ports per spec, and clearer status indicators for long-running mocks.
+2. **Golden Test Insights** – surface per-case logs + diffs, attach failures to plan items, and expose a run history timeline.
+3. **Telemetry & Evidence** – emit trace rows for mock/test traffic and auto-advance plan board/readiness metrics when criteria are met.
+4. **SDK & Spec Sync** – allow the telemetry SDK/webhook bridge to push OpenAPI updates + runtime events straight into projects.
 
-These steps unlock true end-to-end testing once the current CRUD flows are in place.
+Completing these steps turns today’s automated scaffolding into a fully instrumented, evidence-driven E2E workflow.
 
 ---
 

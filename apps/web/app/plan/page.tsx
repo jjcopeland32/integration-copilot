@@ -3,16 +3,49 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Lock, Rocket, Webhook, TestTube2, Award, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Lock, Rocket, Webhook, TestTube2, Award, CheckCircle, Clock, AlertCircle, Activity } from 'lucide-react';
 import { useProjectContext } from '@/components/project-context';
 import { trpc } from '@/lib/trpc/client';
 
-const iconMap: Record<string, { icon: any; gradient: string }> = {
-  Authentication: { icon: Lock, gradient: 'from-blue-500 to-cyan-500' },
-  'Core Integration': { icon: Rocket, gradient: 'from-purple-500 to-pink-500' },
-  Webhooks: { icon: Webhook, gradient: 'from-green-500 to-emerald-500' },
-  UAT: { icon: TestTube2, gradient: 'from-orange-500 to-red-500' },
-  Certification: { icon: Award, gradient: 'from-indigo-500 to-purple-500' },
+const iconMap: Record<
+  string,
+  { icon: any; gradient: string; label: string }
+> = {
+  auth: { icon: Lock, gradient: 'from-blue-500 to-cyan-500', label: 'Authentication' },
+  core: { icon: Rocket, gradient: 'from-purple-500 to-pink-500', label: 'Core Integration' },
+  webhooks: { icon: Webhook, gradient: 'from-green-500 to-emerald-500', label: 'Webhooks' },
+  uat: { icon: TestTube2, gradient: 'from-orange-500 to-red-500', label: 'UAT' },
+  cert: { icon: Award, gradient: 'from-indigo-500 to-purple-500', label: 'Certification' },
+};
+
+const statusStyles: Record<
+  string,
+  { icon: any; card: string; text: string; badgeVariant: 'success' | 'warning' | 'error' | 'default' }
+> = {
+  DONE: {
+    icon: CheckCircle,
+    card: 'bg-gradient-to-r from-green-50 to-emerald-50',
+    text: 'text-emerald-900',
+    badgeVariant: 'success',
+  },
+  IN_PROGRESS: {
+    icon: Clock,
+    card: 'bg-gradient-to-r from-sky-50 to-indigo-50',
+    text: 'text-sky-900',
+    badgeVariant: 'warning',
+  },
+  BLOCKED: {
+    icon: AlertCircle,
+    card: 'bg-gradient-to-r from-rose-50 to-orange-50',
+    text: 'text-rose-900',
+    badgeVariant: 'error',
+  },
+  TODO: {
+    icon: Activity,
+    card: 'bg-gray-50',
+    text: 'text-gray-700',
+    badgeVariant: 'default',
+  },
 };
 
 export default function PlanPage() {
@@ -46,7 +79,7 @@ export default function PlanPage() {
     );
   }
 
-  const totalItems = phases.reduce((sum, phase) => sum + (phase.items ?? 0), 0);
+  const totalItems = phases.reduce((sum, phase) => sum + (phase.total ?? 0), 0);
   const totalDone = phases.reduce((sum, phase) => sum + (phase.done ?? 0), 0);
   const progress = totalItems > 0 ? Math.round((totalDone / totalItems) * 100) : 0;
 
@@ -80,44 +113,51 @@ export default function PlanPage() {
 
   <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
     {phases.map((phase, index) => {
-      const meta = iconMap[phase.name] ?? { icon: Rocket, gradient: 'from-gray-500 to-gray-700' };
+      const meta = iconMap[phase.key] ?? { icon: Rocket, gradient: 'from-gray-500 to-gray-700', label: phase.title };
       return (
-        <Card key={phase.name} className="card-hover animate-in" style={{ animationDelay: `${index * 100}ms` }}>
+        <Card key={phase.key} className="card-hover animate-in" style={{ animationDelay: `${index * 100}ms` }}>
           <CardHeader>
             <div className="flex items-start justify-between mb-4">
               <div className={`p-3 rounded-xl bg-gradient-to-br ${meta.gradient} shadow-lg`}>
                 <meta.icon className="h-6 w-6 text-white" />
               </div>
-              <Badge variant={phase.done === phase.items ? 'success' : phase.done ? 'info' : 'default'}>
-                {phase.done}/{phase.items}
+              <Badge variant={phase.done === phase.total ? 'success' : phase.done ? 'info' : 'default'}>
+                {phase.done}/{phase.total}
               </Badge>
             </div>
-            <CardTitle className="text-xl">{phase.name}</CardTitle>
+            <CardTitle className="text-xl">{meta.label ?? phase.title}</CardTitle>
+            <p className="mt-2 text-sm text-gray-500">{phase.description}</p>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {Array.from({ length: phase.items }).map((_, taskIndex) => (
-                <div
-                  key={taskIndex}
-                  className={`flex items-center gap-3 rounded-lg p-3 ${
-                    taskIndex < phase.done
-                      ? 'bg-gradient-to-r from-green-50 to-emerald-50'
-                      : 'bg-gray-50'
-                  }`}
-                >
-                  {taskIndex < phase.done ? (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  ) : taskIndex === phase.done ? (
-                    <Clock className="h-5 w-5 text-blue-600" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-gray-400" />
-                  )}
-                  <span className={`text-sm font-medium ${taskIndex < phase.done ? 'text-gray-900' : 'text-gray-500'}`}>
-                    Task {taskIndex + 1}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {phase.items.length === 0 ? (
+              <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">No checklist items yet.</div>
+            ) : (
+              <div className="space-y-2">
+                {phase.items.map((item) => {
+                  const status = statusStyles[item.status] ?? statusStyles.TODO;
+                  const StatusIcon = status.icon;
+                  return (
+                    <div key={item.id} className={`rounded-xl p-3 transition ${status.card}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="rounded-full bg-white/60 p-2 shadow-inner">
+                            <StatusIcon className={`h-4 w-4 ${status.text}`} />
+                          </div>
+                          <div>
+                            <p className={`text-sm font-medium ${status.text}`}>{item.title}</p>
+                            <p className="text-xs text-gray-500">
+                              {item.dueAt ? `Due ${new Date(item.dueAt).toLocaleDateString()}` : 'No due date'}
+                              {item.evidenceCount ? ` • ${item.evidenceCount} evidence item${item.evidenceCount > 1 ? 's' : ''}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant={status.badgeVariant}>{item.status.replace('_', ' ')}</Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       );

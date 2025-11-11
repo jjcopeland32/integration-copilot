@@ -34,6 +34,23 @@ Add this to root `package.json`:
     "build": "pnpm build:packages && pnpm -C apps/web build"
   }
 }
+
+## Mock Server Runtime
+
+Mock instances now spin up real Express servers whenever you generate or start a mock in the UI. Each instance:
+
+- Runs inside the Next.js process via `apps/web/lib/mock-server-manager.ts`
+- Listens on incremental ports (3001+) based on how many mocks exist per project
+- Persists its configuration (routes + Postman collection + runtime settings) in Prisma
+
+### Production Considerations
+
+| Concern | Recommendation |
+|---------|----------------|
+| **Process restarts** | Ensure your process manager (PM2, systemd, Vercel function reloader, etc.) can gracefully restart mocks or move them into a dedicated worker service. |
+| **Port allocation** | For multi-tenant hosts, consider proxying mocks behind a path-based router or use dynamic subdomains instead of raw ports. |
+| **Cleanup** | Provide delete/reset controls (coming soon) or schedule a cron job to prune stale `MockInstance` rows so ports don’t accumulate. |
+| **Telemetry** | Pipe mock server logs into your central logging stack to monitor traffic and trace issues. |
 ```
 
 ## Quick Start

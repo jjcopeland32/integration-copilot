@@ -119,11 +119,10 @@ const blueprint = specEngine.generateBlueprint(spec, {
 
 **Deterministic Mocks + 10 Golden Tests**
 
-- Mock API server with Express
-- Latency simulation (configurable)
-- Rate limiting (100 req/min default)
-- Idempotency key support
-- Postman collection export (prefilled)
+- Mock API servers spin up via Express per project
+- Latency/rate-limit simulation (configurable)
+- Idempotency key logging
+- Auto-generated Postman collections + stored mock config
 
 **10 Golden Tests:**
 1. Authentication - Valid Credentials
@@ -136,6 +135,9 @@ const blueprint = specEngine.generateBlueprint(spec, {
 8. Refund/Reversal - Success
 9. Retry Logic - Transient Failure
 10. Invalid Parameter - Unsupported Value
+
+- Suites stored in Prisma per project and runnable via `/api/tests/run`
+- Latest run results persisted (`TestRun`) for UI + readiness reports
 
 ### 3. Validator/Trace ✅
 
@@ -165,6 +167,7 @@ if (!result.valid) {
 - Evidence uploads (immutable audit log)
 - Progress tracking per phase
 - Owner assignment & due dates
+- Auto-seeded per project via orchestrator helper
 
 **Example:**
 ```typescript
@@ -191,6 +194,7 @@ await planBoard.uploadEvidence(itemId, { type: 'screenshot', url: '...' });
 
 **Output:**
 - Markdown report
+- Auto-generated if none exist for a project
 - E-signature support
 - Recommendations
 
@@ -326,35 +330,25 @@ pnpm build:all
 
 ## 📝 Next Steps
 
-### To Complete Full Application
+1. **Mock lifecycle & cleanup**
+   - Allow deleting/resetting mock instances
+   - Reuse ports per spec and surface health indicators
+   - Tie mock activity back into dashboard metrics
 
-1. **Implement tRPC API Routes** (apps/web/app/api/)
-   - Spec import endpoints
-   - Mock management endpoints
-   - Test execution endpoints
-   - Trace ingestion endpoints
-   - Plan board endpoints
-   - Report generation endpoints
+2. **Golden test observability**
+   - Render per-case results + logs in the UI
+   - Persist/download artifacts for auditing
+   - Attach failures to plan items and readiness evidence
 
-2. **Build UI Components** (apps/web/components/)
-   - Spec import wizard
-   - Blueprint viewer
-   - Mock server dashboard
-   - Test runner interface
-   - Trace viewer with diffs
-   - Plan board kanban
-   - Readiness report viewer
+3. **Telemetry-driven progress**
+   - Emit trace rows for mock/test traffic automatically
+   - Auto-advance plan board stages when criteria are satisfied
+   - Feed readiness metrics from stored `TestRun` + trace data
 
-3. **Add Authentication**
-   - NextAuth.js setup
-   - User registration/login
-   - Session management
-
-4. **Deploy Infrastructure**
-   - PostgreSQL database
-   - Object storage (S3) for artifacts
-   - Mock server hosting
-   - Web app deployment (Vercel/Railway)
+4. **Spec & SDK automation**
+   - Accept SDK/webhook-delivered OpenAPI updates
+   - Refresh mocks/tests after spec changes
+   - Notify users about spec drift across projects
 
 ---
 
@@ -382,21 +376,19 @@ pnpm build:all
 
 ### Minor Issues
 
-1. **Web App Build** - Requires additional UI implementation
-2. **Test Coverage** - Unit tests not yet implemented (structure ready)
-3. **API Documentation** - OpenAPI spec for tRPC routes (planned)
-4. **Project Context** - Global navigation now tracks active project, but mocks/tests/traces still need scoping
-5. **Automated Spec Sync** - Specs must be imported manually per project (SDK/webhook sync TBD)
+1. **Mock instance sprawl** – No delete/reset controls yet; ports can accumulate
+2. **Golden test visibility** – UI only shows suite-level counts, not per-case errors/logs
+3. **Telemetry loop** – Plan board/traces/reports aren’t auto-updated from real test/mock traffic yet
+4. **Spec automation** – Specs must still be imported manually (SDK/webhook sync TBD)
+5. **Observability** – No centralized logging/alerting for mock/test runs
 
 ### Recommendations
 
-1. Add unit tests with Vitest
-2. Implement E2E tests with Playwright
-3. Add API documentation with tRPC OpenAPI
-4. Set up CI/CD pipeline
-5. Add monitoring (Sentry, DataDog)
-6. Implement project-scoped navigation for Specs/Mocks/Tests/Traces/Reports
-7. Add automated spec ingestion (SDK/webhook) to keep projects synchronized
+1. Add unit tests with Vitest + Playwright flows for key pages
+2. Implement mock deletion/reset APIs and surface status/health
+3. Store per-case artifacts and expose them in `/tests`
+4. Emit trace rows for mock/test traffic and tie them to plan/report evidence
+5. Add automated spec ingestion (SDK/webhook) to keep projects synchronized
 
 ---
 

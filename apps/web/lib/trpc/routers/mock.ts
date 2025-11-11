@@ -2,6 +2,7 @@ import { router, publicProcedure } from '../server';
 import { z } from 'zod';
 import { resolveProject } from '../../workspace';
 import { MockStatus } from '@prisma/client';
+import { ensureMockServer, stopMockServer } from '../../mock-server-manager';
 
 export const mockRouter = router({
   list: publicProcedure
@@ -29,7 +30,14 @@ export const mockRouter = router({
 
   start: publicProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const mock = await ctx.prisma.mockInstance.findUnique({
+        where: { id: input.id },
+      });
+      if (!mock) {
+        throw new Error('Mock instance not found');
+      }
+      await ensureMockServer(mock);
       return ctx.prisma.mockInstance.update({
         where: { id: input.id },
         data: { status: MockStatus.RUNNING },
@@ -38,7 +46,8 @@ export const mockRouter = router({
 
   stop: publicProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await stopMockServer(input.id);
       return ctx.prisma.mockInstance.update({
         where: { id: input.id },
         data: { status: MockStatus.STOPPED },
