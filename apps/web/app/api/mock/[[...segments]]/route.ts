@@ -35,44 +35,28 @@ async function handle(
   });
 }
 
-export function GET(
-  request: NextRequest,
-  context: { params: { segments?: string[] } }
-) {
-  return handle(request, 'GET', context.params.segments);
+type RouteContext = { params: { segments: string[] } };
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  return handle(request, 'GET', context.params?.segments);
 }
 
-export function POST(
-  request: NextRequest,
-  context: { params: { segments?: string[] } }
-) {
-  return handle(request, 'POST', context.params.segments);
+export async function POST(request: NextRequest, context: RouteContext) {
+  return handle(request, 'POST', context.params?.segments);
 }
 
-export function PUT(
-  request: NextRequest,
-  context: { params: { segments?: string[] } }
-) {
-  return handle(request, 'PUT', context.params.segments);
+export async function PUT(request: NextRequest, context: RouteContext) {
+  return handle(request, 'PUT', context.params?.segments);
 }
 
-export function PATCH(
-  request: NextRequest,
-  context: { params: { segments?: string[] } }
-) {
-  return handle(request, 'PATCH', context.params.segments);
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  return handle(request, 'PATCH', context.params?.segments);
 }
 
-export function DELETE(
-  request: NextRequest,
-  context: { params: { segments?: string[] } }
-) {
-  return handle(request, 'DELETE', context.params.segments);
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  return handle(request, 'DELETE', context.params?.segments);
 }
 
-export function HEAD(
-  request: NextRequest,
-  context: { params: { segments?: string[] } }
-) {
-  return handle(request, 'HEAD', context.params.segments);
+export async function HEAD(request: NextRequest, context: RouteContext) {
+  return handle(request, 'HEAD', context.params?.segments);
 }

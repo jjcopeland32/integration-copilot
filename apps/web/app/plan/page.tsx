@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Lock, Rocket, Webhook, TestTube2, Award, CheckCircle, Clock, AlertCircle, Activity } from 'lucide-react';
+import { Lock, Rocket, Webhook, TestTube2, Award, CheckCircle, Clock, AlertCircle, Activity, Notebook, Gauge } from 'lucide-react';
 import { useProjectContext } from '@/components/project-context';
 import { trpc } from '@/lib/trpc/client';
 
@@ -70,6 +70,7 @@ export default function PlanPage() {
 
   const planQuery = trpc.plan.get.useQuery({ projectId });
   const phases = planQuery.data?.phases ?? [];
+  const config = planQuery.data?.config;
 
   if (planQuery.isLoading) {
     return (
@@ -82,6 +83,23 @@ export default function PlanPage() {
   const totalItems = phases.reduce((sum, phase) => sum + (phase.total ?? 0), 0);
   const totalDone = phases.reduce((sum, phase) => sum + (phase.done ?? 0), 0);
   const progress = totalItems > 0 ? Math.round((totalDone / totalItems) * 100) : 0;
+
+  if (!planQuery.isLoading && phases.length === 0) {
+    return (
+      <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
+        <h2 className="text-2xl font-semibold text-gray-900">No phases enabled for this project</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          Configure the scope from the project detail page to populate the plan board.
+        </p>
+        <Link
+          href="/projects"
+          className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg"
+        >
+          Manage Projects
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -114,6 +132,9 @@ export default function PlanPage() {
   <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
     {phases.map((phase, index) => {
       const meta = iconMap[phase.key] ?? { icon: Rocket, gradient: 'from-gray-500 to-gray-700', label: phase.title };
+      const settings = config?.[phase.key];
+      const scenarios = settings?.uatScenarios ?? [];
+      const benchmarks = settings?.performanceBenchmark ?? null;
       return (
         <Card key={phase.key} className="card-hover animate-in" style={{ animationDelay: `${index * 100}ms` }}>
           <CardHeader>
@@ -156,6 +177,47 @@ export default function PlanPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+            {settings?.notes && (
+              <div className="mt-3 flex items-start gap-2 rounded-2xl bg-indigo-50/70 p-3 text-xs text-indigo-900">
+                <Notebook className="mt-0.5 h-4 w-4" />
+                <p>{settings.notes}</p>
+              </div>
+            )}
+            {scenarios.length > 0 && (
+              <div className="mt-3 rounded-2xl border border-dashed border-gray-200 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">UAT Scenarios</p>
+                <ul className="mt-2 space-y-1 text-sm text-gray-700">
+                  {scenarios.map((scenario) => (
+                    <li key={scenario.id} className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500" />
+                      {scenario.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {benchmarks && (
+              <div className="mt-3 grid gap-3 rounded-2xl border border-gray-100 bg-white/70 p-3 text-xs text-gray-700 sm:grid-cols-3">
+                {typeof benchmarks.targetLatencyMs === 'number' && (
+                  <div className="flex items-center gap-2">
+                    <Gauge className="h-4 w-4 text-indigo-500" />
+                    <span>{benchmarks.targetLatencyMs}ms target</span>
+                  </div>
+                )}
+                {typeof benchmarks.maxErrorRatePercent === 'number' && (
+                  <div className="flex items-center gap-2">
+                    <Gauge className="h-4 w-4 text-rose-500" />
+                    <span>≤ {benchmarks.maxErrorRatePercent}% errors</span>
+                  </div>
+                )}
+                {typeof benchmarks.targetSuccessRatePercent === 'number' && (
+                  <div className="flex items-center gap-2">
+                    <Gauge className="h-4 w-4 text-emerald-500" />
+                    <span>{benchmarks.targetSuccessRatePercent}% success</span>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

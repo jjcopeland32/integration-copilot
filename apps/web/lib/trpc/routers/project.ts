@@ -1,6 +1,51 @@
 import { router, publicProcedure } from '../server';
 import { z } from 'zod';
 import { ensureDemoWorkspace } from '../../workspace';
+import {
+  createPlanBoardManager,
+  PLAN_PHASES,
+  normalizePhaseConfig,
+} from '@integration-copilot/orchestrator';
+
+const scenarioSchema = z.object({
+  id: z.string().min(1).optional(),
+  name: z.string().min(1),
+  description: z.string().max(500).optional(),
+});
+
+const performanceSchema = z
+  .object({
+    targetLatencyMs: z.number().min(0).max(60000).optional(),
+    maxErrorRatePercent: z.number().min(0).max(100).optional(),
+    targetSuccessRatePercent: z.number().min(0).max(100).optional(),
+  })
+  .partial();
+
+const phaseSettingsSchema = z.object({
+  enabled: z.boolean(),
+  notes: z.string().max(500).nullable().optional(),
+  uatScenarios: z.array(scenarioSchema).optional(),
+  performanceBenchmark: performanceSchema.nullable().optional(),
+});
+
+const phaseConfigSchema = z.object(
+  PLAN_PHASES.reduce(
+    (acc, phase) => {
+      acc[phase.key] = phaseSettingsSchema;
+      return acc;
+    },
+    {} as Record<string, typeof phaseSettingsSchema>
+  )
+);
+
+const projectInclude = {
+  specs: true,
+  mocks: true,
+  suites: { include: { runs: { orderBy: { createdAt: 'desc' } } } },
+  planItems: true,
+  reports: true,
+  traces: true,
+} as const;
 
 function mapProject(project: any) {
   return {
@@ -8,6 +53,7 @@ function mapProject(project: any) {
     tests: project.suites ?? [],
     planItems: project.planItems ?? [],
     reports: project.reports ?? [],
+    phaseConfig: normalizePhaseConfig(project.phaseConfig),
     _count: {
       specs: project.specs?.length ?? 0,
       suites: project.suites?.length ?? 0,
@@ -28,14 +74,7 @@ export const projectRouter = router({
       const orgIds = input?.orgId ? [input.orgId] : [org.id];
       const projects = await ctx.prisma.project.findMany({
         where: { orgId: { in: orgIds } },
-        include: {
-          specs: true,
-          mocks: true,
-          suites: { include: { runs: { orderBy: { createdAt: 'desc' } } } },
-          planItems: true,
-          reports: true,
-          traces: true,
-        },
+        include: projectInclude,
         orderBy: { createdAt: 'desc' },
       });
 
@@ -47,14 +86,7 @@ export const projectRouter = router({
     .query(async ({ ctx, input }) => {
       const project = await ctx.prisma.project.findUnique({
         where: { id: input.id },
-        include: {
-          specs: true,
-          mocks: true,
-          suites: { include: { runs: { orderBy: { createdAt: 'desc' } } } },
-          planItems: true,
-          reports: true,
-          traces: true,
-        },
+        include: projectInclude,
       });
       if (!project) return null;
       return mapProject(project);
@@ -73,14 +105,18 @@ export const projectRouter = router({
         userId: ctx.userId,
         orgId: input.orgId ?? ctx.orgId,
       });
+      const defaultConfig = normalizePhaseConfig(undefined);
 
-      return ctx.prisma.project.create({
+      const project = await ctx.prisma.project.create({
         data: {
           orgId: org.id,
           name: input.name,
           status: input.status ?? 'DRAFT',
+          phaseConfig: defaultConfig,
         },
+        include: projectInclude,
       });
+      return mapProject(project);
     }),
 
   update: publicProcedure
@@ -93,10 +129,12 @@ export const projectRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...updates } = input;
-      return ctx.prisma.project.update({
+      const updated = await ctx.prisma.project.update({
         where: { id },
         data: updates,
+        include: projectInclude,
       });
+      return mapProject(updated);
     }),
 
   delete: publicProcedure
@@ -188,5 +226,24 @@ export const projectRouter = router({
         passedTests,
         testPassRate: totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0,
       };
+    }),
+
+  configurePhases: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        config: phaseConfigSchema,
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const normalized = normalizePhaseConfig(input.config);
+      const project = await ctx.prisma.project.update({
+        where: { id: input.projectId },
+        data: { phaseConfig: normalized },
+        include: projectInclude,
+      });
+      const planBoard = createPlanBoardManager(ctx.prisma);
+      await planBoard.initializeProjectPlan(project.id, normalized);
+      return mapProject(project);
     }),
 });

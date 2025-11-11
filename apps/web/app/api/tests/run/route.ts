@@ -7,6 +7,7 @@ import { RBACError, requireRole } from '@/lib/rbac';
 import { prisma } from '@/lib/prisma';
 import { Actor, MockStatus, PlanStatus } from '@prisma/client';
 import { ensureMockServer } from '@/lib/mock-server-manager';
+import { normalizePhaseConfig, PLAN_PHASES, type PhaseKey } from '@integration-copilot/orchestrator';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,6 +103,14 @@ export async function POST(req: NextRequest) {
   if (!suiteRecord) {
     return NextResponse.json({ ok: false, error: 'Suite not found' }, { status: 404 });
   }
+  const project = await prisma.project.findUnique({
+    where: { id: suiteRecord.projectId },
+    select: { phaseConfig: true },
+  });
+  const phaseConfig = normalizePhaseConfig(project?.phaseConfig);
+  const enabledPhaseSet = new Set(
+    PLAN_PHASES.filter((phase) => phaseConfig[phase.key].enabled).map((phase) => phase.key)
+  );
 
   const rawCases = Array.isArray(suiteRecord.cases)
     ? (suiteRecord.cases as unknown[])
@@ -216,26 +225,35 @@ export async function POST(req: NextRequest) {
         )
       );
     }
-    const categoryPhaseMap: Record<string, string> = {
+    const categoryPhaseMap: Record<string, PhaseKey> = {
       auth: 'auth',
       webhook: 'webhooks',
+      webhooks: 'webhooks',
+      error: 'core',
+      edge_case: 'core',
+      uat: 'uat',
     };
-    const touchedPhases = new Set<string>();
+    const touchedPhases = new Set<PhaseKey>();
     for (const testCase of suite.cases) {
       const category = (testCase as any)?.category ?? 'core';
       const phase = categoryPhaseMap[category] ?? 'core';
-      touchedPhases.add(phase);
+      if (enabledPhaseSet.has(phase)) {
+        touchedPhases.add(phase);
+      }
     }
+
     const planStatus =
       summary.failed && summary.failed > 0 ? PlanStatus.IN_PROGRESS : PlanStatus.DONE;
-    await Promise.all(
-      Array.from(touchedPhases).map((phase) =>
-        prisma.planItem.updateMany({
-          where: { projectId: suiteRecord.projectId, phase },
-          data: { status: planStatus },
-        })
-      )
-    );
+    if (touchedPhases.size > 0) {
+      await Promise.all(
+        Array.from(touchedPhases).map((phase) =>
+          prisma.planItem.updateMany({
+            where: { projectId: suiteRecord.projectId, phase },
+            data: { status: planStatus },
+          })
+        )
+      );
+    }
 
     return NextResponse.json({ ok: true, result: normalizedResult });
   } catch (error) {

@@ -1,6 +1,10 @@
 import { router, publicProcedure } from '../server';
 import { z } from 'zod';
-import { createPlanBoardManager } from '@integration-copilot/orchestrator';
+import {
+  PLAN_PHASES,
+  createPlanBoardManager,
+  normalizePhaseConfig,
+} from '@integration-copilot/orchestrator';
 import { PlanStatus } from '@prisma/client';
 
 const statusFilters: Array<{ status: PlanStatus; field: 'done' | 'inProgress' | 'blocked' }> = [
@@ -20,25 +24,24 @@ export const planRouter = router({
         throw new Error('Project not found');
       }
       const planBoard = createPlanBoardManager(ctx.prisma);
+      const phaseConfig = normalizePhaseConfig(project.phaseConfig);
 
-      const existingItems = await ctx.prisma.planItem.count({
-        where: { projectId: input.projectId },
-      });
+      await planBoard.initializeProjectPlan(input.projectId, phaseConfig);
 
-      if (existingItems === 0) {
-        await planBoard.initializeProjectPlan(input.projectId);
-      }
+      const board = await planBoard.getPlanBoard(input.projectId, phaseConfig);
+      const enabledPhases = PLAN_PHASES.filter((phase) => phaseConfig[phase.key].enabled);
 
-      const board = await planBoard.getPlanBoard(input.projectId);
-      const phases = Object.values(board).map((phase) => {
+      const phases = enabledPhases.map((phase) => {
+        const phaseEntry = board[phase.key];
+        const items = phaseEntry?.items ?? [];
         const counters = {
-          total: phase.items.length,
+          total: items.length,
           done: 0,
           inProgress: 0,
           blocked: 0,
         };
 
-        for (const item of phase.items) {
+        for (const item of items) {
           const match = statusFilters.find((filter) => item.status === filter.status);
           if (match) {
             counters[match.field] += 1;
@@ -46,15 +49,16 @@ export const planRouter = router({
         }
 
         return {
-          key: phase.name,
+          key: phase.key,
           title: phase.title,
           description: phase.description,
           exitCriteria: phase.exitCriteria,
+          settings: phaseConfig[phase.key],
           total: counters.total,
           done: counters.done,
           inProgress: counters.inProgress,
           blocked: counters.blocked,
-          items: phase.items.map((item) => ({
+          items: items.map((item) => ({
             id: item.id,
             title: item.title,
             status: item.status,
@@ -65,6 +69,6 @@ export const planRouter = router({
         };
       });
 
-      return { phases };
+      return { phases, config: phaseConfig };
     }),
 });

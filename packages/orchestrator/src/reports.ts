@@ -1,4 +1,5 @@
 import { PrismaClient, ReportKind } from '@prisma/client';
+import { PLAN_PHASES, normalizePhaseConfig, type PhaseKey } from './phases';
 
 export interface ReadinessMetrics {
   testPassRate: number;
@@ -55,7 +56,8 @@ export class ReportGenerator {
       throw new Error('Project not found');
     }
 
-    const metrics = await this.calculateMetrics(project);
+    const phaseConfig = normalizePhaseConfig(project.phaseConfig);
+    const metrics = await this.calculateMetrics(project, phaseConfig);
     const risks = this.identifyRisks(metrics, project);
     const recommendations = this.generateRecommendations(risks, metrics);
     const readyForProduction = this.assessReadiness(metrics, risks);
@@ -70,7 +72,10 @@ export class ReportGenerator {
     };
   }
 
-  private async calculateMetrics(project: any): Promise<ReadinessMetrics> {
+  private async calculateMetrics(
+    project: any,
+    phaseConfig: ReturnType<typeof normalizePhaseConfig>
+  ): Promise<ReadinessMetrics> {
     // Calculate test metrics
     let totalTests = 0;
     let passedTests = 0;
@@ -105,12 +110,11 @@ export class ReportGenerator {
 
     // Calculate phase completion
     const phaseCompletion: Record<string, number> = {};
-    const phases = ['auth', 'core', 'webhooks', 'uat', 'cert'];
-    
-    for (const phase of phases) {
-      const phaseItems = project.planItems.filter((i: any) => i.phase === phase);
+    const enabledPhases = PLAN_PHASES.filter((phase) => phaseConfig[phase.key].enabled);
+    for (const phase of enabledPhases) {
+      const phaseItems = project.planItems.filter((i: any) => i.phase === phase.key);
       const doneItems = phaseItems.filter((i: any) => i.status === 'DONE');
-      phaseCompletion[phase] =
+      phaseCompletion[phase.key] =
         phaseItems.length > 0
           ? Math.round((doneItems.length / phaseItems.length) * 100)
           : 0;
@@ -174,13 +178,14 @@ export class ReportGenerator {
     }
 
     // Phase completion risks
-    const criticalPhases = ['auth', 'core', 'cert'];
+    const criticalPhases: PhaseKey[] = ['auth', 'core', 'cert'];
     for (const phase of criticalPhases) {
-      if (metrics.phaseCompletion[phase] < 100) {
+      const completion = metrics.phaseCompletion[phase];
+      if (typeof completion === 'number' && completion < 100) {
         risks.push({
           severity: 'critical',
           category: 'Integration Completeness',
-          description: `${phase.toUpperCase()} phase is ${metrics.phaseCompletion[phase]}% complete`,
+          description: `${phase.toUpperCase()} phase is ${completion}% complete`,
           recommendation: `Complete all ${phase} phase requirements`,
         });
       }
@@ -249,8 +254,14 @@ export class ReportGenerator {
     const hasCriticalRisks = risks.some((r) => r.severity === 'critical');
     const testPassRateOk = metrics.testPassRate >= 90;
     const errorRateOk = metrics.errorRate <= 5;
-    const corePhaseComplete = metrics.phaseCompletion.core === 100;
-    const certPhaseComplete = metrics.phaseCompletion.cert === 100;
+    const corePhaseComplete =
+      typeof metrics.phaseCompletion.core === 'number'
+        ? metrics.phaseCompletion.core === 100
+        : true;
+    const certPhaseComplete =
+      typeof metrics.phaseCompletion.cert === 'number'
+        ? metrics.phaseCompletion.cert === 100
+        : true;
 
     return (
       !hasCriticalRisks &&

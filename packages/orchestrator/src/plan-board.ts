@@ -1,4 +1,12 @@
 import { PrismaClient, PlanStatus } from '@prisma/client';
+import {
+  PLAN_PHASES,
+  type PhaseDefinition,
+  type PhaseKey,
+  type PhaseSettings,
+  type ProjectPhaseConfig,
+  normalizePhaseConfig,
+} from './phases';
 
 type PlanItemRecord = {
   id: string;
@@ -19,66 +27,6 @@ type EvidenceItem = {
   uploadedAt?: string;
 };
 
-export interface PlanPhase {
-  name: string;
-  title: string;
-  description: string;
-  exitCriteria: string[];
-}
-
-export const DEFAULT_PHASES: PlanPhase[] = [
-  {
-    name: 'auth',
-    title: 'Authentication Setup',
-    description: 'Configure and test authentication mechanism',
-    exitCriteria: [
-      'API credentials obtained',
-      'Authentication test passes',
-      'Token refresh mechanism understood',
-    ],
-  },
-  {
-    name: 'core',
-    title: 'Core Integration',
-    description: 'Implement core API endpoints',
-    exitCriteria: [
-      'All required endpoints implemented',
-      'Happy path tests passing',
-      'Error handling implemented',
-    ],
-  },
-  {
-    name: 'webhooks',
-    title: 'Webhooks Implementation',
-    description: 'Set up webhook handlers and signature verification',
-    exitCriteria: [
-      'Webhook endpoint configured',
-      'Signature verification working',
-      'Event processing implemented',
-    ],
-  },
-  {
-    name: 'uat',
-    title: 'User Acceptance Testing',
-    description: 'End-to-end testing in staging environment',
-    exitCriteria: [
-      'All golden tests passing',
-      'UAT scenarios completed',
-      'Performance benchmarks met',
-    ],
-  },
-  {
-    name: 'cert',
-    title: 'Certification',
-    description: 'Final certification and go-live approval',
-    exitCriteria: [
-      'Security review completed',
-      'Documentation finalized',
-      'Go-live checklist approved',
-    ],
-  },
-];
-
 export interface CreatePlanItemInput {
   projectId: string;
   phase: string;
@@ -94,17 +42,65 @@ export interface UpdatePlanItemInput {
   evidence?: any;
 }
 
+function buildExitCriteria(phase: PhaseDefinition, settings: PhaseSettings): string[] {
+  const criteria = [...phase.exitCriteria];
+
+  if (phase.key === 'uat' && settings.uatScenarios.length > 0) {
+    for (const scenario of settings.uatScenarios) {
+      criteria.push(`UAT: ${scenario.name}`);
+    }
+  }
+
+  if (settings.performanceBenchmark) {
+    const benchmarkParts: string[] = [];
+    if (typeof settings.performanceBenchmark.targetLatencyMs === 'number') {
+      benchmarkParts.push(`≤ ${settings.performanceBenchmark.targetLatencyMs}ms latency`);
+    }
+    if (typeof settings.performanceBenchmark.targetSuccessRatePercent === 'number') {
+      benchmarkParts.push(`${settings.performanceBenchmark.targetSuccessRatePercent}% success rate`);
+    }
+    if (typeof settings.performanceBenchmark.maxErrorRatePercent === 'number') {
+      benchmarkParts.push(`≤ ${settings.performanceBenchmark.maxErrorRatePercent}% error rate`);
+    }
+    if (benchmarkParts.length > 0) {
+      criteria.push(`Performance target: ${benchmarkParts.join(' • ')}`);
+    }
+  }
+
+  return criteria;
+}
+
 export class PlanBoardManager {
   constructor(private prisma: PrismaClient) {}
 
-  async initializeProjectPlan(projectId: string): Promise<void> {
+  async initializeProjectPlan(
+    projectId: string,
+    config?: ProjectPhaseConfig
+  ): Promise<void> {
+    const normalized = normalizePhaseConfig(config);
+    const enabledPhases = PLAN_PHASES.filter((phase) => normalized[phase.key].enabled);
+    if (enabledPhases.length === 0) return;
+
+    const existingItems = await this.prisma.planItem.findMany({
+      where: { projectId },
+      select: { phase: true, title: true },
+    });
+    const seen = new Set(existingItems.map((item) => `${item.phase}:${item.title}`));
+
     const items: Array<Omit<PlanItemRecord, 'id'>> = [];
 
-    for (const phase of DEFAULT_PHASES) {
-      for (const criterion of phase.exitCriteria) {
+    for (const phase of enabledPhases) {
+      const settings = normalized[phase.key];
+      const exitCriteria = buildExitCriteria(phase, settings);
+      for (const criterion of exitCriteria) {
+        const key = `${phase.key}:${criterion}`;
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
         items.push({
           projectId,
-          phase: phase.name,
+          phase: phase.key,
           title: criterion,
           status: PlanStatus.TODO,
         });
@@ -136,18 +132,20 @@ export class PlanBoardManager {
     });
   }
 
-  async getPlanBoard(projectId: string) {
+  async getPlanBoard(projectId: string, config?: ProjectPhaseConfig) {
+    const normalized = normalizePhaseConfig(config);
+    const enabledPhases = PLAN_PHASES.filter((phase) => normalized[phase.key].enabled);
     const items = (await this.prisma.planItem.findMany({
       where: { projectId },
       orderBy: [{ phase: 'asc' }, { createdAt: 'asc' }],
     })) as PlanItemRecord[];
 
-    // Group by phase
-    const board: Record<string, any> = {};
-    for (const phase of DEFAULT_PHASES) {
-      board[phase.name] = {
+    const board: Record<PhaseKey, any> = {} as Record<PhaseKey, any>;
+    for (const phase of enabledPhases) {
+      board[phase.key] = {
         ...phase,
-        items: items.filter((item) => item.phase === phase.name),
+        settings: normalized[phase.key],
+        items: items.filter((item) => item.phase === phase.key),
       };
     }
 
@@ -210,7 +208,9 @@ export class PlanBoardManager {
     };
   }
 
-  async getProjectProgress(projectId: string) {
+  async getProjectProgress(projectId: string, config?: ProjectPhaseConfig) {
+    const normalized = normalizePhaseConfig(config);
+    const enabledPhases = PLAN_PHASES.filter((phase) => normalized[phase.key].enabled);
     const progress: Array<{
       phase: string;
       total: number;
@@ -220,8 +220,8 @@ export class PlanBoardManager {
       percentComplete: number;
     }> = [];
     
-    for (const phase of DEFAULT_PHASES) {
-      const phaseProgress = await this.getPhaseProgress(projectId, phase.name);
+    for (const phase of enabledPhases) {
+      const phaseProgress = await this.getPhaseProgress(projectId, phase.key);
       progress.push(phaseProgress);
     }
 
