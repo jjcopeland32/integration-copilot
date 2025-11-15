@@ -105,12 +105,14 @@ Then open http://localhost:3000, go to `/login`, and sign in with the demo accou
 4. Notice the card color changes based on results:
    - Green = All passed
    - Orange/Red = Some failed
+5. Open `.artifacts/testruns/*.json` to review the exact request/response pair that was persisted for that run (every POST to `/api/tests/run` now stores a structured `StoredRunResult`)
 
 #### Run All Tests
 1. Click "Run All Tests" button at the top
 2. Watch all 10 test suites run sequentially
 3. See suite-level pass/fail counts update (latest run persisted)
-4. Note: per-case details are still pending UI work—use the server logs or `.artifacts/testruns` for deeper inspection for now
+4. Inspect `.artifacts/testruns` for a consolidated JSON summary (suite metadata + each case’s final attempt). Those artifacts are produced by the same handler that powers the UI, so failures you see in the interface will always have matching evidence on disk.
+5. (Optional) Open `/traces` after a run—the handler emits a trace row per case, so you can see the request/response meta captured for the last execution. This is handy for debugging why a suite failed.
 
 #### Test Categories
 The page shows 10 golden test categories:
@@ -162,7 +164,7 @@ The page shows 10 golden test categories:
 
 **Notes:**
 - Signing/download controls are stubbed until the approval workflow lands
-- Metrics currently derive from stored tests/traces; expect richer evidence once telemetry hooks in
+- Metrics derive from stored tests/traces; because `/api/tests/run` now feeds both the `Trace` table and plan board progress, you can re-run a suite and see the readiness score update on the next report refresh.
 
 ---
 
