@@ -33,5 +33,4 @@
 ## 7. Code Quality Hardening
 - `/api/tests/run`: remove `any` casts, create typed DTOs for suite/case snapshots, and stop coercing Prisma JSON payloads.
 - `@integration-copilot/testkit`: expose the correct `runSuite` signature via types/exports so callers don’t resort to `as unknown`.
-- Demo spec import (`app/api/specs/petstore/route.ts`): validate YAML input, avoid global mock registration, and persist artifacts in a structured way.
 - Mock/Test dashboards: replace `any` configs + window confirms with typed DTOs and dedicated components for download/delete flows.
