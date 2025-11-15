@@ -4,6 +4,85 @@ import { resolveProject } from '../../workspace';
 import { MockStatus } from '@prisma/client';
 import { ensureMockServer, stopMockServer } from '../../mock-server-manager';
 
+const storedMockConfig = z
+  .object({
+    specId: z.string().optional(),
+    specName: z.string().optional(),
+    routes: z
+      .array(
+        z.object({
+          path: z.string(),
+          method: z.string(),
+          statusCode: z.number().optional(),
+        })
+      )
+      .optional(),
+    postmanCollection: z.any().optional(),
+    settings: z
+      .object({
+        enableLatency: z.boolean().optional(),
+        latencyMs: z.number().optional(),
+        enableRateLimit: z.boolean().optional(),
+        rateLimit: z.number().optional(),
+      })
+      .optional(),
+  })
+  .optional();
+
+type StoredMockConfig = z.infer<typeof storedMockConfig>;
+
+function resolvePort(baseUrl: string): number {
+  try {
+    const url = new URL(baseUrl);
+    if (url.port) {
+      return Number(url.port);
+    }
+    return url.protocol === 'https:' ? 443 : 80;
+  } catch {
+    return NaN;
+  }
+}
+
+function describeMock(instance: Awaited<ReturnType<typeof toMockRecord>>) {
+  const parsed = storedMockConfig.safeParse(instance.config);
+  const config = parsed.success ? parsed.data ?? {} : {};
+  const port = resolvePort(instance.baseUrl);
+  const routeSummaries =
+    config?.routes?.map((route) => ({
+      path: route.path,
+      method: route.method.toUpperCase(),
+      statusCode: route.statusCode ?? 200,
+    })) ?? [];
+
+  return {
+    id: instance.id,
+    status: instance.status,
+    baseUrl: instance.baseUrl,
+    createdAt: instance.createdAt,
+    updatedAt: instance.updatedAt,
+    projectId: instance.projectId,
+    specName: config?.specName ?? 'Mock Service',
+    specId: config?.specId ?? null,
+    port: Number.isNaN(port) ? null : port,
+    routeCount: routeSummaries.length,
+    routes: routeSummaries,
+    hasPostmanCollection: Boolean(config?.postmanCollection),
+    postmanCollection: config?.postmanCollection ?? null,
+    settings: {
+      enableLatency: config?.settings?.enableLatency ?? true,
+      latencyMs: config?.settings?.latencyMs ?? 50,
+      enableRateLimit: config?.settings?.enableRateLimit ?? false,
+      rateLimit: config?.settings?.rateLimit ?? 100,
+    },
+  };
+}
+
+async function toMockRecord(ctx: any, id: string) {
+  return ctx.prisma.mockInstance.findUnique({
+    where: { id },
+  });
+}
+
 export const mockRouter = router({
   list: publicProcedure
     .input(z.object({ projectId: z.string().optional() }).optional())
@@ -14,18 +93,21 @@ export const mockRouter = router({
         orgId: ctx.orgId,
       });
 
-      return ctx.prisma.mockInstance.findMany({
+      const instances = await ctx.prisma.mockInstance.findMany({
         where: { projectId: project.id },
         orderBy: { createdAt: 'desc' },
       });
+      return instances.map(describeMock);
     }),
 
   get: publicProcedure
     .input(z.object({ id: z.string() }))
-    .query(({ ctx, input }) => {
-      return ctx.prisma.mockInstance.findUnique({
-        where: { id: input.id },
-      });
+    .query(async ({ ctx, input }) => {
+      const instance = await toMockRecord(ctx, input.id);
+      if (!instance) {
+        throw new Error('Mock instance not found');
+      }
+      return describeMock(instance);
     }),
 
   start: publicProcedure

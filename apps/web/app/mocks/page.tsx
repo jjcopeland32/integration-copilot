@@ -1,26 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Server, Play, Square, Download, Activity, Trash2 } from 'lucide-react';
+import { Server, Play, Square, Download, Activity, Trash2, Gauge, Loader2 } from 'lucide-react';
 import { useProjectContext } from '@/components/project-context';
 import { trpc } from '@/lib/trpc/client';
-import { useMemo } from 'react';
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '@/lib/trpc/root';
 
-type StoredMockConfig = {
-  specName?: string;
-  routes?: unknown[];
-  postmanCollection?: Record<string, unknown>;
-};
-
-function parseMockConfig(config: unknown): StoredMockConfig {
-  if (config && typeof config === 'object') {
-    return config as StoredMockConfig;
-  }
-  return {};
-}
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type MockSummary = RouterOutputs['mock']['list'][number];
 
 export default function MocksPage() {
   const { projectId, projectName } = useProjectContext();
@@ -40,39 +32,39 @@ export default function MocksPage() {
       await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
     },
   });
-
-  const mocks = useMemo(() => mocksQuery.data ?? [], [mocksQuery.data]);
-  const isLoading = mocksQuery.isLoading;
-
-  const totalMocks = mocks.length;
-  const runningMocks = useMemo(() => mocks.filter((mock) => mock.status === 'RUNNING').length, [mocks]);
-
   const deleteMutation = trpc.mock.delete.useMutation({
     onSuccess: async () => {
       await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
     },
   });
 
-  const handleDownload = (mock: any) => {
-    const config = parseMockConfig(mock?.config);
-    const collection = config.postmanCollection;
-    if (!collection) return;
-    const blob = new Blob([JSON.stringify(collection, null, 2)], { type: 'application/json' });
+  const mocks = useMemo(() => mocksQuery.data ?? [], [mocksQuery.data]);
+  const isLoading = mocksQuery.isLoading;
+  const totalMocks = mocks.length;
+  const runningMocks = useMemo(() => mocks.filter((mock) => mock.status === 'RUNNING').length, [mocks]);
+
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  const handleDownload = (mock: MockSummary) => {
+    if (!mock.postmanCollection) return;
+    const blob = new Blob([JSON.stringify(mock.postmanCollection, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${(config.specName ?? 'mock-service').replace(/\s+/g, '-').toLowerCase()}-postman.json`;
+    link.download = `${mock.specName.replace(/\s+/g, '-').toLowerCase()}-postman.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
-  const handleDelete = (mock: any) => {
-    if (!window.confirm(`Delete mock service at ${mock.baseUrl}? This cannot be undone.`)) {
-      return;
-    }
-    deleteMutation.mutate({ id: mock.id });
+  const handleDelete = (id: string) => {
+    deleteMutation.mutate(
+      { id },
+      {
+        onSettled: () => setConfirmingId(null),
+      }
+    );
   };
 
   if (!projectId) {
@@ -117,19 +109,10 @@ export default function MocksPage() {
           {mocks.map((mock, index) => {
             const running = mock.status === 'RUNNING';
             const gradient = running ? 'from-green-500 to-emerald-500' : 'from-blue-500 to-cyan-500';
-            const config = parseMockConfig(mock.config);
-            const routes = Array.isArray(config.routes) ? config.routes.length : 0;
-            const specLabel = config.specName ?? `Mock #${index + 1}`;
-            const port = (() => {
-              try {
-                const url = new URL(mock.baseUrl);
-                return url.port || (url.protocol === 'https:' ? '443' : '80');
-              } catch {
-                return mock.baseUrl?.split(':').pop() ?? '—';
-              }
-            })();
+            const portLabel = mock.port ? `${mock.port}` : '—';
+            const showConfirm = confirmingId === mock.id;
             return (
-              <Card key={mock.id} className="card-hover animate-in" style={{ animationDelay: `${index * 100}ms` }}>
+              <Card key={mock.id} className="card-hover animate-in" style={{ animationDelay: `${index * 90}ms` }}>
                 <CardHeader>
                   <div className="flex items-start justify-between mb-4">
                     <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg`}>
@@ -140,25 +123,38 @@ export default function MocksPage() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-8 w-8 text-gray-500 hover:text-red-500 rounded-full"
-                        onClick={() => handleDelete(mock)}
-                        disabled={deleteMutation.isPending}
-                        title="Delete mock"
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => setConfirmingId(mock.id)}
+                        disabled={deleteMutation.isPending && showConfirm}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Delete
                       </Button>
                     </div>
                   </div>
-                  <CardTitle className="text-xl">{specLabel}</CardTitle>
+                  <CardTitle className="text-xl">{mock.specName}</CardTitle>
                   <p className="text-sm text-gray-500">{mock.baseUrl}</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-gray-50 to-blue-50 p-3">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Activity className="h-4 w-4 text-blue-600" />
-                      <span>{routes} routes</span>
+                      <span>{mock.routeCount} routes</span>
                     </div>
-                    <span className="text-xs text-gray-400">Port {port}</span>
+                    <span className="text-xs text-gray-400">Port {portLabel}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-gray-50 p-3 text-xs text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <Gauge className="h-3 w-3 text-indigo-500" />
+                      <span>Latency: {mock.settings.latencyMs}ms</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Gauge className="h-3 w-3 text-emerald-500" />
+                      <span>
+                        Rate limit:{' '}
+                        {mock.settings.enableRateLimit ? `${mock.settings.rateLimit}/min` : 'off'}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -179,11 +175,48 @@ export default function MocksPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleDownload(mock)}
-                      disabled={!config.postmanCollection}
+                      disabled={!mock.hasPostmanCollection}
                     >
                       <Download className="h-4 w-4" />
                     </Button>
                   </div>
+                  {showConfirm && (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      <p className="font-medium">Remove this mock service?</p>
+                      <p className="text-xs text-red-600/80">
+                        Deleting stops the Express server and removes its stored configuration.
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="gap-1"
+                          onClick={() => handleDelete(mock.id)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          {deleteMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Removing…
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setConfirmingId(null)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
