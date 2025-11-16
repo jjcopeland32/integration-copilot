@@ -49,6 +49,29 @@ export default function DashboardPage() {
   const passRate = totalCases > 0 ? Math.round((totalPassed / totalCases) * 100) : 0;
   const traceCount = project.traces.length;
   const recentTraces = project.traces.slice(0, 4);
+  const recentTestRuns = project.suites
+    .map((suite: any) => {
+      const latestRun = suite.runs?.[0] as { results?: Record<string, any>; createdAt?: string } | undefined;
+      if (!latestRun?.results) return null;
+      return {
+        suiteId: suite.id,
+        suiteName: suite.name,
+        summary: latestRun.results.summary as { passed?: number; total?: number } | undefined,
+        finishedAt: latestRun.results.finishedAt ?? latestRun.createdAt ?? null,
+      };
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => {
+      const dateA = a?.finishedAt ? new Date(a.finishedAt).getTime() : 0;
+      const dateB = b?.finishedAt ? new Date(b.finishedAt).getTime() : 0;
+      return dateB - dateA;
+    })
+    .slice(0, 4) as Array<{
+      suiteId: string;
+      suiteName: string;
+      summary?: { passed?: number; total?: number };
+      finishedAt: string | null;
+    }>;
 
   const stats = [
     {
@@ -187,6 +210,50 @@ export default function DashboardPage() {
                 </Link>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="animate-in" style={{ animationDelay: '600ms' }}>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
+                <TestTube className="h-5 w-5 text-white" />
+              </div>
+              <CardTitle className="text-xl">Recent Test Runs</CardTitle>
+            </div>
+            <CardDescription>Latest golden suite executions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {recentTestRuns.length === 0 ? (
+              <p className="text-sm text-gray-500">No tests have been executed yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {recentTestRuns.map((run) => {
+                  const passed = run.summary?.passed ?? 0;
+                  const total = run.summary?.total ?? 0;
+                  const dateLabel = run.finishedAt
+                    ? new Date(run.finishedAt).toLocaleString()
+                    : '—';
+                  const success = total > 0 && passed === total;
+                  return (
+                    <div
+                      key={run.suiteId}
+                      className="flex items-start gap-4 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 p-4"
+                    >
+                      <Badge variant={success ? 'success' : 'warning'}>
+                        {passed}/{total}
+                      </Badge>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-900">{run.suiteName}</p>
+                        <p className="text-xs text-gray-500">{dateLabel}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

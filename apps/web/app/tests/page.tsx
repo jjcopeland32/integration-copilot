@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TestTube, Play, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { TestTube, Play, CheckCircle, XCircle, Loader2, Download } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useProjectContext } from '@/components/project-context';
 
@@ -98,6 +98,46 @@ export default function TestsPage() {
     for (const suite of suites) {
       await handleRunSuite(suite.id);
     }
+  };
+
+  const handleDownloadResults = (suite: any) => {
+    const latestRun = suite.runs?.[0] as { results?: SuiteRunResult } | undefined;
+    if (!latestRun?.results) return;
+    const blob = new Blob([JSON.stringify(latestRun.results, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${suite.name.replace(/\s+/g, '-').toLowerCase()}-latest-run.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const renderCase = (result: CaseResult) => {
+    const variant = result.status === 'passed' ? 'success' : result.status === 'failed' ? 'error' : 'default';
+    return (
+      <div
+        key={result.id}
+        className="rounded-2xl border border-gray-100 bg-gray-50/80 p-3 text-sm text-gray-700 flex flex-col gap-1"
+      >
+        <div className="flex items-center justify-between">
+          <p className="font-medium">{result.name}</p>
+          <Badge variant={variant}>{result.status.toUpperCase()}</Badge>
+        </div>
+        {result.message && <p className="text-xs text-gray-500">Notes: {result.message}</p>}
+        {result.response && (
+          <p className="text-xs text-gray-500">
+            Response: {result.response.status ?? '—'} •{' '}
+            {typeof result.response.body === 'object'
+              ? JSON.stringify(result.response.body)
+              : String(result.response.body ?? '—')}
+          </p>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -247,6 +287,31 @@ export default function TestsPage() {
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    {summary?.durationMs !== undefined && summary?.durationMs !== null && (
+                      <span>Duration: {(summary.durationMs / 1000).toFixed(1)}s</span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 text-indigo-600 hover:text-indigo-700"
+                      onClick={() => handleDownloadResults(suite)}
+                      disabled={!latestRun?.results}
+                    >
+                      <Download className="h-3 w-3" />
+                      Latest JSON
+                    </Button>
+                  </div>
+                  {caseResults.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Case Results
+                      </p>
+                      <div className="space-y-2 max-h-48 overflow-auto pr-1">
+                        {caseResults.map(renderCase)}
+                      </div>
                     </div>
                   )}
                 </CardContent>

@@ -105,7 +105,8 @@ Then open http://localhost:3000, go to `/login`, and sign in with the demo accou
 4. Notice the card color changes based on results:
    - Green = All passed
    - Orange/Red = Some failed
-5. Open `.artifacts/testruns/*.json` to review the exact request/response pair that was persisted for that run (every POST to `/api/tests/run` now stores a structured `StoredRunResult`)
+5. Inspect the new "Case Results" section on each suite card – every individual golden test shows pass/fail/skip status along with the HTTP response that was captured.
+6. Need to dig deeper? Use the “Latest JSON” button on any suite to download the structured run artifact straight from the UI instead of spelunking through `.artifacts/testruns`.
 
 #### Run All Tests
 1. Click "Run All Tests" button at the top

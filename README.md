@@ -19,7 +19,7 @@
 - **OpenAPI/AsyncAPI Import** – Load and normalize API specifications into Prisma
 - **Blueprint Generation** – Automated integration documentation per spec
 - **Mock Server Automation** – Generate + auto-start Express mocks with latency/rate-limit simulation
-- **Golden Tests** – 10 comprehensive suites (38 tests) stored per project and runnable via `/api/tests/run`
+- **Golden Tests** – 10 comprehensive suites (38 tests) stored per project and runnable via `/api/tests/run`, complete with per-case UI insights and downloadable run artifacts
 - **Project Lifecycle** – Create/delete projects, attach specs, and manage active project context
 - **Trace Validation** – Request/response validation and logging (scoped to each project)
 - **Plan Board** – 5-phase integration roadmap backed by real `PlanItem` records, auto-updates when telemetry meets criteria
