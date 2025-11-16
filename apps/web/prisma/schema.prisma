@@ -67,6 +67,7 @@ model Project {
   traces      Trace[]
   planItems   PlanItem[]
   reports     Report[]
+  partnerProjects PartnerProject[]
 }
 
 enum ProjectStatus {
@@ -175,6 +176,7 @@ model PlanItem {
   evidence  Json?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  evidences PlanItemEvidence[]
 }
 
 enum PlanStatus {
@@ -200,4 +202,86 @@ enum ReportKind {
   READINESS
   MIGRATION
   AUDIT
+}
+
+model PartnerUser {
+  id          String              @id @default(cuid())
+  email       String              @unique
+  name        String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  memberships PartnerMembership[]
+  evidences   PlanItemEvidence[]
+}
+
+model PartnerProject {
+  id           String               @id @default(cuid())
+  project      Project              @relation(fields: [projectId], references: [id])
+  projectId    String
+  partnerName  String?
+  status       PartnerProjectStatus @default(PENDING)
+  requirements Json?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  invites      PartnerInvite[]
+  memberships  PartnerMembership[]
+  evidences    PlanItemEvidence[]
+}
+
+model PartnerInvite {
+  id               String         @id @default(cuid())
+  email            String
+  token            String         @unique
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  partnerProject   PartnerProject @relation(fields: [partnerProjectId], references: [id])
+  partnerProjectId String
+  createdAt        DateTime       @default(now())
+}
+
+model PartnerMembership {
+  id               String         @id @default(cuid())
+  partnerUser      PartnerUser    @relation(fields: [partnerUserId], references: [id])
+  partnerUserId    String
+  partnerProject   PartnerProject @relation(fields: [partnerProjectId], references: [id])
+  partnerProjectId String
+  role             PartnerRole    @default(CONTRIBUTOR)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([partnerUserId, partnerProjectId])
+}
+
+model PlanItemEvidence {
+  id                      String         @id @default(cuid())
+  planItem                PlanItem       @relation(fields: [planItemId], references: [id])
+  planItemId              String
+  partnerProject          PartnerProject @relation(fields: [partnerProjectId], references: [id])
+  partnerProjectId        String
+  uploadedByPartnerUser   PartnerUser?   @relation(fields: [uploadedByPartnerUserId], references: [id])
+  uploadedByPartnerUserId String?
+  kind                    EvidenceKind   @default(FILE)
+  url                     String?
+  notes                   String?
+  metadata                Json?
+  createdAt               DateTime       @default(now())
+}
+
+enum PartnerRole {
+  ADMIN
+  CONTRIBUTOR
+  VIEWER
+}
+
+enum PartnerProjectStatus {
+  PENDING
+  ACTIVE
+  BLOCKED
+  ARCHIVED
+}
+
+enum EvidenceKind {
+  FILE
+  LINK
+  NOTE
 }
