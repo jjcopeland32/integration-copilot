@@ -212,6 +212,7 @@ model PartnerUser {
   updatedAt   DateTime            @updatedAt
   memberships PartnerMembership[]
   evidences   PlanItemEvidence[]
+  sessions    PartnerSession[]
 }
 
 model PartnerProject {
@@ -226,6 +227,7 @@ model PartnerProject {
   invites      PartnerInvite[]
   memberships  PartnerMembership[]
   evidences    PlanItemEvidence[]
+  sessions     PartnerSession[]
 }
 
 model PartnerInvite {
@@ -284,4 +286,17 @@ enum EvidenceKind {
   FILE
   LINK
   NOTE
+}
+
+model PartnerSession {
+  id               String         @id @default(cuid())
+  token            String         @unique
+  partnerUser      PartnerUser    @relation(fields: [partnerUserId], references: [id])
+  partnerUserId    String
+  partnerProject   PartnerProject @relation(fields: [partnerProjectId], references: [id])
+  partnerProjectId String
+  expiresAt        DateTime
+  createdAt        DateTime       @default(now())
+
+  @@index([token])
 }
