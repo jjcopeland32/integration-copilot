@@ -25,6 +25,8 @@
 - **Plan Board** – 5-phase integration roadmap backed by real `PlanItem` records, auto-updates when telemetry meets criteria
 - **Readiness Reports** – Auto-generated go-live assessment with live metrics from stored tests/traces + markdown viewer
 
+> Looking ahead: the partner-facing portal (see `docs/partner-portal.md`) will expose these same mocks/tests/plan workflows directly to integrator teams, plus an AI assistant that summarizes failures and next steps.
+
 ### 🎨 Modern UI
 - ✨ Smooth animations and transitions
 - 🌈 Colorful gradients throughout
