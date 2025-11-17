@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Actor } from '@prisma/client';
-import { RBACError, requireRole } from '@/lib/rbac';
+import {
+  getPartnerSessionTokenFromHeaders,
+  loadPartnerSession,
+} from '@/lib/partner/session';
 import {
   runGoldenSuite,
   SuiteForbiddenError,
@@ -9,43 +12,27 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-interface RunPayload {
-  suiteId: string;
-  baseUrl?: string;
-  actor?: Actor;
-}
-
 export async function POST(req: NextRequest) {
-  try {
-    await requireRole(['OWNER', 'ADMIN', 'VENDOR', 'PARTNER']);
-  } catch (error) {
-    if (error instanceof RBACError) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
-    }
-    throw error;
+  const token = getPartnerSessionTokenFromHeaders(req.headers);
+  if (!token) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  let payload: RunPayload;
-  try {
-    payload = (await req.json()) as RunPayload;
-  } catch {
-    return NextResponse.json({ ok: false, error: 'Invalid JSON payload' }, { status: 400 });
+  const session = await loadPartnerSession(token);
+  if (!session) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!payload?.suiteId) {
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body.suiteId !== 'string') {
     return NextResponse.json({ ok: false, error: 'suiteId is required' }, { status: 400 });
   }
 
-  const actor: Actor =
-    payload.actor && Object.values(Actor).includes(payload.actor as Actor)
-      ? (payload.actor as Actor)
-      : Actor.VENDOR;
-
   try {
     const result = await runGoldenSuite({
-      suiteId: payload.suiteId,
-      actor,
-      baseUrlOverride: payload.baseUrl,
+      suiteId: body.suiteId,
+      actor: Actor.PARTNER,
+      expectedProjectId: session.partnerProject.projectId,
     });
     return NextResponse.json({ ok: true, result });
   } catch (error) {

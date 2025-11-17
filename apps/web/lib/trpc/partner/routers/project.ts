@@ -12,12 +12,14 @@ export const partnerProjectRouter = createPartnerRouter({
         project: {
           include: {
             specs: true,
+            mocks: true,
             planItems: {
               include: {
                 evidences: {
                   where: { partnerProjectId: ctx.session.partnerProjectId },
                 },
               },
+              orderBy: { createdAt: 'asc' },
             },
             suites: {
               include: {
@@ -27,6 +29,7 @@ export const partnerProjectRouter = createPartnerRouter({
                   take: 5,
                 },
               },
+              orderBy: { createdAt: 'desc' },
             },
             traces: {
               orderBy: { createdAt: 'desc' },

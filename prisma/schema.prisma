@@ -86,6 +86,8 @@ model Spec {
   rawUrl     String?
   raw        Json?
   normalized Json?
+  submittedByPartnerProject   PartnerProject? @relation("PartnerSubmittedSpecs", fields: [submittedByPartnerProjectId], references: [id])
+  submittedByPartnerProjectId String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   blueprints Blueprint[]
@@ -228,6 +230,7 @@ model PartnerProject {
   memberships  PartnerMembership[]
   evidences    PlanItemEvidence[]
   sessions     PartnerSession[]
+  submittedSpecs Spec[] @relation("PartnerSubmittedSpecs")
 }
 
 model PartnerInvite {
