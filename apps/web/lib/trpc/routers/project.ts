@@ -27,6 +27,7 @@ const phaseSettingsSchema = z.object({
   notes: z.string().max(500).nullable().optional(),
   uatScenarios: z.array(scenarioSchema).optional(),
   performanceBenchmark: performanceSchema.nullable().optional(),
+  customRequirements: z.array(scenarioSchema).optional(),
 });
 
 const phaseConfigSchema = z.object(
@@ -43,7 +44,7 @@ const projectInclude = {
   specs: true,
   mocks: true,
   suites: { include: { runs: { orderBy: { createdAt: 'desc' } } } },
-  planItems: true,
+  planItems: { include: { evidences: true } },
   reports: true,
   traces: true,
 } as const;
