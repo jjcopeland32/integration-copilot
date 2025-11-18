@@ -19,11 +19,14 @@ type BenchmarkState = {
   maxErrorRatePercent?: number;
   targetSuccessRatePercent?: number;
 } | null;
+type RequirementState = { id: string; name: string; description?: string };
+
 type PhaseSettingsState = {
   enabled: boolean;
   notes?: string | null;
   uatScenarios: ScenarioState[];
   performanceBenchmark: BenchmarkState;
+  customRequirements: RequirementState[];
 };
 type PhaseConfigState = Record<UIPhaseKey, PhaseSettingsState>;
 
@@ -93,6 +96,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         notes: incoming?.notes ?? null,
         uatScenarios: Array.isArray(incoming?.uatScenarios) ? incoming.uatScenarios : [],
         performanceBenchmark: incoming?.performanceBenchmark ?? null,
+        customRequirements: Array.isArray(incoming?.customRequirements) ? incoming.customRequirements : [],
       };
     }
     setPhaseConfig(nextState);
@@ -152,6 +156,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
       notes: null,
       uatScenarios: [],
       performanceBenchmark: null,
+      customRequirements: [],
     };
   };
 
@@ -180,6 +185,20 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         ...current,
         uatScenarios: nextScenarios,
       };
+    });
+  };
+
+  const handleRequirementChange = (key: UIPhaseKey, value: string) => {
+    const lines = value
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    updatePhaseState(key, (current) => {
+      const nextRequirements: RequirementState[] = lines.map((line, index) => ({
+        id: current.customRequirements?.[index]?.id ?? `${key}_requirement_${index}`,
+        name: line,
+      }));
+      return { ...current, customRequirements: nextRequirements };
     });
   };
 
@@ -381,6 +400,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               {UI_PLAN_PHASES.map((phase) => {
                 const state = phaseConfig[phase.key] ?? ensurePhaseState(phase.key);
                 const scenarioText = state.uatScenarios?.map((s) => s.name).join('\n') ?? '';
+                const requirementsText = state.customRequirements?.map((r) => r.name).join('\n') ?? '';
                 const benchmark = state.performanceBenchmark ?? {};
                 return (
                   <div
@@ -519,6 +539,19 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
                             </p>
                           </div>
                         )}
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Custom checklist items (one per line)
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={requirementsText}
+                            onChange={(event) => handleRequirementChange(phase.key, event.target.value)}
+                            className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-900 shadow-inner outline-none transition focus:border-indigo-400"
+                            placeholder="Security review signed&#10;Partner runbook shared"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

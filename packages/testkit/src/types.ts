@@ -73,6 +73,6 @@ export interface SuiteRunResult {
 }
 
 export interface RunSuiteOptions {
-  baseUrl: string;
+  origin: string;
   saveArtifacts?: boolean;
 }

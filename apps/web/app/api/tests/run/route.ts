@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { Actor } from '@prisma/client';
+import { runSuiteById } from '@integration-copilot/testkit';
 import { RBACError, requireRole } from '@/lib/rbac';
 import {
-  runGoldenSuite,
+  loadSuiteExecutionContext,
+  persistSuiteRun,
   SuiteForbiddenError,
   SuiteNotFoundError,
 } from '@/lib/tests/golden-runner';
+import { resolveOriginFromEnv, type EnvKey } from '@/lib/tests/origin';
 
 export const dynamic = 'force-dynamic';
 
-interface RunPayload {
-  suiteId: string;
-  baseUrl?: string;
-  actor?: Actor;
-}
+const PayloadSchema = z.object({
+  suiteId: z.string().min(1),
+  envKey: z.enum(['MOCK', 'SANDBOX', 'PROD']).default('MOCK'),
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,29 +28,24 @@ export async function POST(req: NextRequest) {
     throw error;
   }
 
-  let payload: RunPayload;
-  try {
-    payload = (await req.json()) as RunPayload;
-  } catch {
-    return NextResponse.json({ ok: false, error: 'Invalid JSON payload' }, { status: 400 });
+  const parsed = PayloadSchema.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 });
   }
 
-  if (!payload?.suiteId) {
-    return NextResponse.json({ ok: false, error: 'suiteId is required' }, { status: 400 });
-  }
-
-  const actor: Actor =
-    payload.actor && Object.values(Actor).includes(payload.actor as Actor)
-      ? (payload.actor as Actor)
-      : Actor.VENDOR;
+  const { suiteId, envKey } = parsed.data;
 
   try {
-    const result = await runGoldenSuite({
-      suiteId: payload.suiteId,
-      actor,
-      baseUrlOverride: payload.baseUrl,
+    const context = await loadSuiteExecutionContext(suiteId);
+    const origin = await resolveOriginFromEnv(envKey as EnvKey, context.suiteRecord.projectId);
+    const runResult = await runSuiteById(suiteId, { origin, saveArtifacts: true });
+    const persisted = await persistSuiteRun({
+      context,
+      actor: Actor.VENDOR,
+      origin,
+      runResult,
     });
-    return NextResponse.json({ ok: true, result });
+    return NextResponse.json({ ok: true, result: persisted });
   } catch (error) {
     if (error instanceof SuiteNotFoundError) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 404 });

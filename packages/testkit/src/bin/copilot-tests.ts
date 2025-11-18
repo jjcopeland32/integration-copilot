@@ -9,7 +9,7 @@ declare const process: {
 
 interface CliArgs {
   suiteId: string;
-  baseUrl: string;
+  origin: string;
   noArtifacts?: boolean;
 }
 
@@ -30,24 +30,27 @@ function parseArgs(argv: string[]): CliArgs {
   }
 
   const suiteId = (args.suite || args['suite-id']) as string | undefined;
-  const baseUrl = (args.base || args['base-url']) as string | undefined;
+  const originArg =
+    (args.origin as string | undefined) ||
+    (args.base as string | undefined) ||
+    (args['base-url'] as string | undefined);
 
-  if (!suiteId || !baseUrl) {
-    throw new Error('Usage: copilot-tests --suite <SUITE_ID> --base <BASE_URL>');
+  if (!suiteId || !originArg) {
+    throw new Error('Usage: copilot-tests --suite <SUITE_ID> --origin <ORIGIN>');
   }
 
   return {
     suiteId,
-    baseUrl,
+    origin: originArg,
     noArtifacts: Boolean(args['no-artifacts']),
   };
 }
 
 async function main() {
   try {
-    const { suiteId, baseUrl, noArtifacts } = parseArgs(process.argv.slice(2));
+    const { suiteId, origin, noArtifacts } = parseArgs(process.argv.slice(2));
     const result = await runSuiteById(suiteId, {
-      baseUrl,
+      origin,
       saveArtifacts: !noArtifacts,
     });
 

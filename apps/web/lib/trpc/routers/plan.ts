@@ -64,7 +64,9 @@ export const planRouter = router({
             status: item.status,
             ownerId: item.ownerId,
             dueAt: item.dueAt,
-            evidenceCount: Array.isArray(item.evidence?.items) ? item.evidence.items.length : 0,
+            evidenceCount:
+              (Array.isArray(item.evidences) ? item.evidences.length : 0) +
+              (Array.isArray(item.evidence?.items) ? item.evidence.items.length : 0),
           })),
         };
       });

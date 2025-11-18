@@ -1,0 +1,15 @@
+name: openapi-lint
+on:
+  pull_request:
+    paths:
+      - '**/*.yaml'
+      - '**/*.yml'
+      - '**/*.json'
+jobs:
+  spectral:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: stoplightio/spectral-action@v0.12.1
+        with:
+          file_glob: 'apps/**/openapi*.{yaml,yml,json},packages/**/openapi*.{yaml,yml,json}'

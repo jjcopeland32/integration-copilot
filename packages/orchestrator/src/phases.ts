@@ -20,11 +20,18 @@ export interface PerformanceBenchmark {
   targetSuccessRatePercent?: number | null;
 }
 
+export interface PhaseRequirement {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 export interface PhaseSettings {
   enabled: boolean;
   notes?: string | null;
   uatScenarios: PhaseScenario[];
   performanceBenchmark?: PerformanceBenchmark | null;
+  customRequirements: PhaseRequirement[];
 }
 
 export type ProjectPhaseConfig = Record<PhaseKey, PhaseSettings>;
@@ -90,6 +97,7 @@ function defaultSettings(phase: PhaseDefinition): PhaseSettings {
     notes: null,
     uatScenarios: [],
     performanceBenchmark: null,
+    customRequirements: [],
   };
 }
 
@@ -109,6 +117,7 @@ function cloneDefaultConfig(): ProjectPhaseConfig {
       notes: DEFAULT_PHASE_CONFIG[phase.key].notes ?? null,
       uatScenarios: [],
       performanceBenchmark: null,
+      customRequirements: [],
     };
   }
   return clone;
@@ -130,6 +139,24 @@ function sanitizeScenario(scenario: any, index: number): PhaseScenario {
       : null;
   const id = idCandidate ?? `scenario_${index}_${Math.random().toString(36).slice(2, 8)}`;
 
+  return { id, name, description };
+}
+
+function sanitizeRequirement(requirement: any, index: number): PhaseRequirement {
+  const fallbackName = `Requirement ${index + 1}`;
+  const name =
+    typeof requirement?.name === 'string' && requirement.name.trim().length > 0
+      ? requirement.name.trim()
+      : fallbackName;
+  const description =
+    typeof requirement?.description === 'string' && requirement.description.trim().length > 0
+      ? requirement.description.trim()
+      : undefined;
+  const idCandidate =
+    typeof requirement?.id === 'string' && requirement.id.trim().length > 0
+      ? requirement.id.trim()
+      : null;
+  const id = idCandidate ?? `requirement_${index}_${Math.random().toString(36).slice(2, 8)}`;
   return { id, name, description };
 }
 
@@ -172,6 +199,12 @@ export function normalizePhaseConfig(config: unknown): ProjectPhaseConfig {
     if (Array.isArray(raw.uatScenarios)) {
       normalized[phase.key].uatScenarios = raw.uatScenarios.map((scenario: any, index: number) =>
         sanitizeScenario(scenario, index)
+      );
+    }
+
+    if (Array.isArray(raw.customRequirements)) {
+      normalized[phase.key].customRequirements = raw.customRequirements.map((req: any, index: number) =>
+        sanitizeRequirement(req, index)
       );
     }
 

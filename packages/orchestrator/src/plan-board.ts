@@ -1,4 +1,4 @@
-import { PrismaClient, PlanStatus, Prisma } from '@prisma/client';
+import { PrismaClient, PlanStatus } from '@prisma/client';
 import {
   PLAN_PHASES,
   type PhaseDefinition,
@@ -17,6 +17,7 @@ type PlanItemRecord = {
   ownerId?: string | null;
   dueAt?: Date | string | null;
   evidence?: { items?: EvidenceItem[] } | null;
+  evidences?: { id: string }[];
 };
 
 type EvidenceItem = {
@@ -67,6 +68,12 @@ function buildExitCriteria(phase: PhaseDefinition, settings: PhaseSettings): str
     }
   }
 
+  if (settings.customRequirements && settings.customRequirements.length > 0) {
+    for (const requirement of settings.customRequirements) {
+      criteria.push(requirement.name);
+    }
+  }
+
   return criteria;
 }
 
@@ -83,17 +90,20 @@ export class PlanBoardManager {
 
     const existingItems = await this.prisma.planItem.findMany({
       where: { projectId },
-      select: { phase: true, title: true },
+      select: { id: true, phase: true, title: true },
     });
     const seen = new Set(existingItems.map((item) => `${item.phase}:${item.title}`));
+    const desiredKeys = new Set<string>();
 
-    const items: Prisma.PlanItemCreateManyInput[] = [];
+    const items: Array<{ projectId: string; phase: string; title: string; status: PlanStatus }> =
+      [];
 
     for (const phase of enabledPhases) {
       const settings = normalized[phase.key];
       const exitCriteria = buildExitCriteria(phase, settings);
       for (const criterion of exitCriteria) {
         const key = `${phase.key}:${criterion}`;
+        desiredKeys.add(key);
         if (seen.has(key)) {
           continue;
         }
@@ -107,9 +117,23 @@ export class PlanBoardManager {
       }
     }
 
-    await this.prisma.planItem.createMany({
-      data: items,
-    });
+    if (items.length > 0) {
+      await this.prisma.planItem.createMany({
+        data: items,
+      });
+    }
+
+    const staleIds = existingItems
+      .filter((item) => !desiredKeys.has(`${item.phase}:${item.title}`))
+      .map((item) => item.id);
+    if (staleIds.length > 0) {
+      const delegate = this.prisma.planItem as unknown as {
+        deleteMany(args: { where: { id: { in: string[] } } }): Promise<unknown>;
+      };
+      await delegate.deleteMany({
+        where: { id: { in: staleIds } },
+      });
+    }
   }
 
   async createPlanItem(input: CreatePlanItemInput) {
@@ -138,6 +162,7 @@ export class PlanBoardManager {
     const items = (await this.prisma.planItem.findMany({
       where: { projectId },
       orderBy: [{ phase: 'asc' }, { createdAt: 'asc' }],
+      include: { evidences: true },
     })) as PlanItemRecord[];
 
     const board: Record<PhaseKey, any> = {} as Record<PhaseKey, any>;

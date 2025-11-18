@@ -11,6 +11,7 @@ import {
   TestSuite,
   AttemptRecord,
 } from './types';
+import { buildSafeUrl } from './urlGuard';
 import { resolveTemplates } from './templates';
 
 const DEFAULT_BASE_DELAY = 200;
@@ -67,7 +68,8 @@ function buildRequestInit(testCase: TestCase) {
 
 async function executeTestCase(
   testCase: TestCase,
-  baseUrl: string
+  origin: string,
+  allowInsecureOrigin: boolean
 ): Promise<CaseResult> {
   const request = testCase.request;
   const repeats = request?.repeat ?? 1;
@@ -98,32 +100,11 @@ async function executeTestCase(
       if (request?.simulate?.rateLimit && attempt === 0) {
         status = 429;
         body = { error: 'rate_limited' };
-        /**
- * 🚧 SECURITY TODO: SSRF Protection (Planned for Production)
- *
- * The `baseUrl` used below originates from client input during local development.
- * This is intentional for early-stage flexibility — enabling developers to dynamically
- * test integrations against any sandbox or local endpoint without rebuilding the app.
- *
- * ⚠️ In production builds, this will be locked down to prevent Server-Side Request Forgery (SSRF):
- *    - Replace client-provided `baseUrl` with a controlled environment key (`envKey`)
- *      that maps to a server-side allowlist of approved domains.
- *    - Example:
- *        const BASE_URLS = {
- *          stripe_sandbox: 'https://api.stripe.com',
- *          adyen_test: 'https://checkout-test.adyen.com',
- *          mock: 'https://mock.integrationcopilot.com',
- *        };
- *        const baseUrl = BASE_URLS[body.envKey];
- *    - Optionally perform DNS/IP validation to block private/internal ranges.
- *
- * 🧩 Status: Known CodeQL Alert (#6 — js/request-forgery)
- * 🧠 Context: Safe to ignore in private development; must be remediated before external demos or deployment.
- */
-
       } else {
         try {
-          const response = await fetch(`${baseUrl}${request?.url || ''}`, {
+          const relativePath = request?.url ?? '/';
+          const safeUrl = buildSafeUrl(relativePath, origin, allowInsecureOrigin);
+          const response = await fetch(safeUrl, {
             method: requestInit.method,
             headers: requestInit.headers,
             body: requestInit.body,
@@ -248,9 +229,10 @@ export async function runSuite(
   const runId = randomUUID();
   const startedAt = new Date();
   const results: CaseResult[] = [];
+  const allowInsecureOrigin = options.origin.startsWith('http://');
 
   for (const testCase of suite.cases) {
-    const result = await executeTestCase(testCase, options.baseUrl);
+    const result = await executeTestCase(testCase, options.origin, allowInsecureOrigin);
     results.push(result);
   }
 

@@ -1,0 +1,56 @@
+name: golden-tests
+permissions:
+  contents: read
+on:
+  pull_request:
+  push:
+    branches: [master]
+concurrency:
+  group: golden-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s --health-timeout=5s --health-retries=10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      MOCK_BASE_URL: http://localhost:4010
+      SANDBOX_BASE_URL: ''
+      PROD_BASE_URL: ''
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'pnpm' }
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
+      - run: pnpm -w install --frozen-lockfile
+      - run: pnpm -w db:migrate
+      - run: pnpm -w build
+      - name: Start web app
+        run: pnpm --filter @integration-copilot/web start &>/tmp/web.log &
+      - name: Wait for healthcheck
+        run: |
+          for i in {1..60}; do
+            curl -fsS http://localhost:3000/api/health && exit 0
+            sleep 2
+          done
+          echo "App failed to start"; tail -n 200 /tmp/web.log; exit 1
+      - name: Prepare artifacts directory
+        run: mkdir -p ./.artifacts/testruns
+      - name: Run golden tests
+        run: pnpm -w testkit:run --envKey=MOCK --saveArtifacts
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: testruns
+          path: ./.artifacts/testruns/**
