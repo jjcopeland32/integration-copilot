@@ -7,6 +7,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/*/package.json ./packages/
 COPY apps/*/package.json ./apps/
 COPY tools ./tools
+ENV SKIP_ENSURE_WORKSPACE=1
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder

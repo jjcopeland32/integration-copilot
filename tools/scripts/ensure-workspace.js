@@ -5,6 +5,11 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const net = require('net');
 
+if (process.env.SKIP_ENSURE_WORKSPACE === '1') {
+  console.log('[setup] SKIP_ENSURE_WORKSPACE=1, skipping workspace bootstrap');
+  process.exit(0);
+}
+
 const ROOT = path.resolve(__dirname, '..', '..');
 const PACKAGES = [
   'spec-engine',

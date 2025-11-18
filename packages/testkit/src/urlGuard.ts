@@ -9,6 +9,9 @@ const PRIVATE_HOST_PATTERNS = [
   /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
 ];
 
+const IPV4_PATTERN = /^(?:\d{1,3}\.){3}\d{1,3}$/;
+const IPV6_PATTERN = /^[0-9a-f:]+$/i;
+
 export function isRelativePath(path: string): boolean {
   if (typeof path !== 'string') {
     return false;
@@ -29,6 +32,17 @@ function isPrivateHost(hostname: string): boolean {
   return PRIVATE_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
 }
 
+function isIpAddress(hostname: string): boolean {
+  if (!hostname) return false;
+  if (IPV4_PATTERN.test(hostname)) {
+    return true;
+  }
+  if (hostname.includes(':') && IPV6_PATTERN.test(hostname)) {
+    return true;
+  }
+  return false;
+}
+
 export function buildSafeUrl(
   relativePath: string,
   origin: string,
@@ -45,8 +59,8 @@ export function buildSafeUrl(
     throw new Error('HTTPS origin required');
   }
 
-  if (!allowInsecure && isPrivateHost(parsedOrigin.hostname)) {
-    throw new Error('Origin cannot target a private host');
+  if (!allowInsecure && (isPrivateHost(parsedOrigin.hostname) || isIpAddress(parsedOrigin.hostname))) {
+    throw new Error('Origin cannot target localhost, private networks, or raw IPs');
   }
 
   return new URL(relativePath, parsedOrigin).toString();
