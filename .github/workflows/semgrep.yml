@@ -1,0 +1,18 @@
+name: semgrep
+on:
+  pull_request:
+  schedule: [{ cron: '0 6 * * *' }]
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/owasp-top-ten
+            p/nodejs
+          generateSarif: true
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif

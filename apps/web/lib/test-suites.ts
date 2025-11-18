@@ -1,6 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { GoldenTestSuite } from '@integration-copilot/testkit';
+type GoldenTestSuite = {
+  name: string;
+  version?: string;
+  cases: Array<Record<string, unknown>>;
+};
 
 const SUITE_FILES = [
   'tools/golden-tests.payments.sample.json',

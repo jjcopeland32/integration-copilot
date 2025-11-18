@@ -78,7 +78,8 @@ export async function loadPartnerSession(
 }
 
 export async function resolvePartnerSessionFromCookies() {
-  const token = cookies().get(PARTNER_SESSION_COOKIE_NAME)?.value;
+  const cookieStore = await Promise.resolve(cookies());
+  const token = cookieStore.get(PARTNER_SESSION_COOKIE_NAME)?.value;
   if (!token) {
     return null;
   }

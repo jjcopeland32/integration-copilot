@@ -61,8 +61,8 @@ export const partnerSpecRouter = createPartnerRouter({
           version:
             input.version ?? normalized.version ?? inferVersion(parsed),
           kind: input.kind ?? SpecKind.OPENAPI,
-          raw: parsed as Prisma.InputJsonValue,
-          normalized: normalized as Prisma.InputJsonValue,
+          raw: parsed as unknown as Prisma.InputJsonValue,
+          normalized: normalized as unknown as Prisma.InputJsonValue,
           rawUrl: input.source,
           submittedByPartnerProjectId: ctx.session!.partnerProjectId,
         },

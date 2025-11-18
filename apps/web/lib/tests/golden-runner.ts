@@ -1,5 +1,5 @@
 import { Actor, PlanStatus, Prisma, TestSuite } from '@prisma/client';
-import type { SuiteRunResult, CaseResult } from '@integration-copilot/testkit';
+import type { SuiteRunResult } from '@integration-copilot/testkit';
 import { prisma } from '@/lib/prisma';
 import {
   normalizePhaseConfig,
@@ -29,6 +29,19 @@ type CategorizedTestCase = {
     status?: number;
     [key: string]: unknown;
   };
+};
+
+type RunnerCaseResult = {
+  id: string;
+  name: string;
+  status: 'passed' | 'failed' | 'skipped';
+  repeats: Array<{
+    attempts?: Array<{
+      status?: number | null;
+      body?: unknown;
+    }>;
+  }>;
+  errors: string[];
 };
 
 type CaseSnapshot = {
@@ -122,7 +135,7 @@ function normalizeCases(rawCases: unknown[]): CategorizedTestCase[] {
   });
 }
 
-function buildCaseSnapshots(results: CaseResult[]): CaseSnapshot[] {
+function buildCaseSnapshots(results: RunnerCaseResult[]): CaseSnapshot[] {
   return results.map((result) => {
     const lastRepeat = result.repeats.at(-1);
     const lastAttempt = lastRepeat?.attempts?.at(-1);
