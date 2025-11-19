@@ -14,7 +14,7 @@
     "postinstall": "pnpm ensure:workspace",
     "build:packages": "pnpm prisma:generate && pnpm -C packages/spec-engine build && pnpm -C packages/mockgen build && pnpm -C packages/validator build && pnpm -C packages/orchestrator build && pnpm -C packages/connectors build && pnpm -C packages/testkit build",
     "build": "pnpm build:packages",
-    "testkit:run": "pnpm -C packages/testkit build && node packages/testkit/dist/bin/copilot-tests.js --suite PAYMENTS_BASELINE_v1 --origin http://localhost:3000",
+    "testkit:run": "pnpm -C packages/testkit build && node tools/scripts/run-suite-via-api.js --suite PAYMENTS_BASELINE_v1 --envKey MOCK",
     "db:migrate": "pnpm --dir apps/web exec prisma migrate deploy",
     "typecheck": "pnpm --dir apps/web exec tsc --noEmit",
     "test": "pnpm --dir apps/web exec vitest run --passWithNoTests",
