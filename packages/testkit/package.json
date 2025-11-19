@@ -12,7 +12,7 @@
     }
   },
   "bin": {
-    "copilot-tests": "dist/bin/copilot-tests.js"
+    "copilot-tests": "bin/copilot-tests.cjs"
   },
   "scripts": {
     "build": "tsc -b",
