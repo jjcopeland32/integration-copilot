@@ -188,7 +188,7 @@ async function loadEphemeralSuiteExecutionContext(
     projectId: 'ephemeral-project',
     name: suite.name,
     version: suite.version ?? '1.0.0',
-    cases: suite.cases as unknown as Prisma.InputJsonValue,
+    cases: suite.cases as unknown as Prisma.JsonValue,
     createdAt: now,
     updatedAt: now,
   };
