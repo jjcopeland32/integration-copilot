@@ -211,6 +211,18 @@ async function ensureDatabase(env) {
   }
 }
 
+function applyDatabaseMigrations() {
+  if (!withDb) {
+    return;
+  }
+  try {
+    console.log('[setup] Applying Prisma migrations');
+    run('pnpm', ['db:migrate']);
+  } catch (error) {
+    console.warn('[setup] Failed to apply migrations automatically:', error.message);
+  }
+}
+
 async function main() {
   try {
     const env = ensureEnvFile();
@@ -225,6 +237,7 @@ async function main() {
     ensurePrismaClient();
     ensurePackageBuilds();
     await ensureDatabase(env);
+    applyDatabaseMigrations();
   } catch (error) {
     console.error('[setup] Failed to prepare workspace');
     console.error(error);
