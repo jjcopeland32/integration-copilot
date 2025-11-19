@@ -6,6 +6,7 @@ import {
   PLAN_PHASES,
   type PhaseKey,
 } from '@integration-copilot/orchestrator';
+import { getSuiteById } from '@/lib/test-suites';
 
 type CategorizedTestCase = {
   id: string;
@@ -158,17 +159,79 @@ export type SuiteExecutionContext = {
   suiteRecord: TestSuite;
   categorizedCases: CategorizedTestCase[];
   enabledPhaseSet: Set<PhaseKey>;
+  /**
+   * When true, persistence side effects (TestRun/Trace/PlanItem writes)
+   * are skipped. Used in CI fallback mode where Prisma tables may not exist.
+   */
+  persistenceDisabled?: boolean;
 };
+
+async function loadEphemeralSuiteExecutionContext(
+  suiteId: string
+): Promise<SuiteExecutionContext> {
+  const suite = await getSuiteById(suiteId);
+  if (!suite) {
+    throw new SuiteNotFoundError();
+  }
+
+  const phaseConfig = normalizePhaseConfig(undefined);
+  const enabledPhaseSet = new Set<PhaseKey>(
+    PLAN_PHASES.filter((phase) => phaseConfig[phase.key].enabled).map((phase) => phase.key)
+  );
+
+  const rawCases = Array.isArray(suite.cases) ? (suite.cases as unknown[]) : [];
+  const categorizedCases = normalizeCases(rawCases);
+  const now = new Date();
+
+  const suiteRecord: TestSuite = {
+    id: suiteId,
+    projectId: 'ephemeral-project',
+    name: suite.name,
+    version: suite.version ?? '1.0.0',
+    cases: suite.cases as unknown as Prisma.InputJsonValue,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  return {
+    suiteRecord,
+    categorizedCases,
+    enabledPhaseSet,
+    persistenceDisabled: true,
+  };
+}
 
 export async function loadSuiteExecutionContext(
   suiteId: string,
   expectedProjectId?: string
 ): Promise<SuiteExecutionContext> {
-  const suiteRecord = await prisma.testSuite.findUnique({
-    where: { id: suiteId },
-  });
+  const allowFallback = process.env.COPILOT_TESTKIT_FALLBACK === 'file';
+
+  let suiteRecord: TestSuite | null = null;
+  try {
+    suiteRecord = await prisma.testSuite.findUnique({
+      where: { id: suiteId },
+    });
+  } catch (error) {
+    if (!allowFallback) {
+      throw error;
+    }
+    console.warn(
+      '[golden-runner] Prisma lookup failed for TestSuite; falling back to file-based suite',
+      error
+    );
+    return loadEphemeralSuiteExecutionContext(suiteId);
+  }
+
   if (!suiteRecord) {
-    throw new SuiteNotFoundError();
+    if (!allowFallback) {
+      throw new SuiteNotFoundError();
+    }
+    console.warn(
+      '[golden-runner] TestSuite not found in database; falling back to file-based suite',
+      { suiteId }
+    );
+    return loadEphemeralSuiteExecutionContext(suiteId);
   }
 
   if (expectedProjectId && suiteRecord.projectId !== expectedProjectId) {
@@ -206,7 +269,7 @@ export async function persistSuiteRun({
   origin: string;
   runResult: SuiteRunResult;
 }): Promise<StoredRunResult> {
-  const { suiteRecord, categorizedCases, enabledPhaseSet } = context;
+  const { suiteRecord, categorizedCases, enabledPhaseSet, persistenceDisabled } = context;
   const caseSnapshots = buildCaseSnapshots(runResult.cases);
   const summary = runResult.summary;
   const skipped = Math.max(summary.total - summary.passed - summary.failed, 0);
@@ -225,6 +288,10 @@ export async function persistSuiteRun({
     },
     cases: caseSnapshots,
   };
+
+  if (persistenceDisabled) {
+    return storedResult;
+  }
 
   await prisma.testRun.create({
     data: {

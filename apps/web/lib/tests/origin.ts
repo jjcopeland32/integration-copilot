@@ -229,6 +229,29 @@ export async function resolveOriginFromEnv(
   envKey: EnvKey,
   projectId: string
 ): Promise<string> {
+  const fallbackMode = process.env.COPILOT_TESTKIT_FALLBACK === 'file';
+
+  if (fallbackMode) {
+    if (envKey === 'MOCK') {
+      const fromEnv = process.env.MOCK_BASE_URL || process.env.APP_URL;
+      return fromEnv ?? 'http://localhost:3000';
+    }
+    if (envKey === 'SANDBOX') {
+      const fromEnv = process.env.SANDBOX_BASE_URL;
+      if (!fromEnv) {
+        throw new Error('SANDBOX_BASE_URL is not configured for this project');
+      }
+      return fromEnv;
+    }
+    if (envKey === 'PROD') {
+      const fromEnv = process.env.PROD_BASE_URL;
+      if (!fromEnv) {
+        throw new Error('PROD_BASE_URL is not configured for this project');
+      }
+      return fromEnv;
+    }
+  }
+
   if (envKey === 'MOCK') {
     const mockInstance = await prisma.mockInstance.findFirst({
       where: { projectId },

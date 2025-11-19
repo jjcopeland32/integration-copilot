@@ -14,6 +14,7 @@ jobs:
       APP_URL: http://localhost:3000
       TELEMETRY_SIGNING_SECRET: test
       RBAC_DISABLED: 'true'
+      COPILOT_TESTKIT_FALLBACK: file
     steps:
       - name: Checkout
         uses: actions/checkout@v4
