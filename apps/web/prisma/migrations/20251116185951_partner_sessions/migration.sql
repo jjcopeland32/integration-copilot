@@ -1,2 +1,3 @@
--- CreateIndex
-CREATE INDEX "PartnerSession_token_idx" ON "PartnerSession"("token");
+-- This migration previously attempted to add an index before the
+-- PartnerSession table existed. It is intentionally left empty so
+-- subsequent migrations can create the table and indexes safely.

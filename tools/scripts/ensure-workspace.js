@@ -5,6 +5,11 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const net = require('net');
 
+if (process.env.SKIP_ENSURE_WORKSPACE === '1') {
+  console.log('[setup] SKIP_ENSURE_WORKSPACE=1, skipping workspace bootstrap');
+  process.exit(0);
+}
+
 const ROOT = path.resolve(__dirname, '..', '..');
 const PACKAGES = [
   'spec-engine',
@@ -206,6 +211,18 @@ async function ensureDatabase(env) {
   }
 }
 
+function applyDatabaseMigrations() {
+  if (!withDb) {
+    return;
+  }
+  try {
+    console.log('[setup] Applying Prisma migrations');
+    run('pnpm', ['db:migrate']);
+  } catch (error) {
+    console.warn('[setup] Failed to apply migrations automatically:', error.message);
+  }
+}
+
 async function main() {
   try {
     const env = ensureEnvFile();
@@ -220,6 +237,7 @@ async function main() {
     ensurePrismaClient();
     ensurePackageBuilds();
     await ensureDatabase(env);
+    applyDatabaseMigrations();
   } catch (error) {
     console.error('[setup] Failed to prepare workspace');
     console.error(error);

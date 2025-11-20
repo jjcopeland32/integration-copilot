@@ -1,0 +1,18 @@
+extends: ['spectral:oas', 'spectral:asyncapi']
+rules:
+  info-contact:
+    description: 'Document must provide support contact'
+    message: 'info.contact is required'
+    severity: warn
+    given: '$.info'
+    then:
+      - field: contact
+        function: truthy
+  operation-summary:
+    description: 'Each operation should include a short summary'
+    message: 'Operation is missing summary'
+    severity: warn
+    given: '$.paths.*.*'
+    then:
+      - field: summary
+        function: truthy

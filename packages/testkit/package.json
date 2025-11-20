@@ -2,7 +2,7 @@
   "name": "@integration-copilot/testkit",
   "version": "0.1.3",
   "private": false,
-  "type": "module",
+  "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
