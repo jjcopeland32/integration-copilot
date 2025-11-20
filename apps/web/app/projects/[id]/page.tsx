@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useEffect, useState } from 'react';
 import { useProjectContext } from '@/components/project-context';
 import { UI_PLAN_PHASES, type UIPhaseKey } from '@/data/plan-phases';
+import { ProjectTelemetryPanel } from '@/components/projects/telemetry-panel';
 
 type AutomationState = 'idle' | 'running' | 'success' | 'error';
 type ScenarioState = { id: string; name: string; description?: string };
@@ -355,6 +356,8 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
           </CardHeader>
         </Card>
       </div>
+
+      <ProjectTelemetryPanel projectId={project.id} />
 
       <Card>
         <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">

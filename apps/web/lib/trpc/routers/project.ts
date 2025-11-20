@@ -7,6 +7,11 @@ import {
   PLAN_PHASES,
   normalizePhaseConfig,
 } from '@integration-copilot/orchestrator';
+import {
+  generateTelemetrySecret,
+  getProjectTelemetrySummary,
+  rotateTelemetrySecret,
+} from '@/lib/projects/telemetry';
 
 const scenarioSchema = z.object({
   id: z.string().min(1).optional(),
@@ -115,6 +120,7 @@ export const projectRouter = router({
           name: input.name,
           status: input.status ?? 'DRAFT',
           phaseConfig: defaultConfig as unknown as Prisma.InputJsonValue,
+          telemetrySecret: generateTelemetrySecret(),
         },
         include: projectInclude,
       });
@@ -247,5 +253,18 @@ export const projectRouter = router({
       const planBoard = createPlanBoardManager(ctx.prisma);
       await planBoard.initializeProjectPlan(project.id, normalized);
       return mapProject(project);
+    }),
+
+  telemetry: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ input }) => {
+      return getProjectTelemetrySummary(input.projectId);
+    }),
+
+  rotateTelemetrySecret: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .mutation(async ({ input }) => {
+      const secret = await rotateTelemetrySecret(input.projectId);
+      return { secret };
     }),
 });
