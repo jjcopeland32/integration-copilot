@@ -36,7 +36,7 @@
     "react-markdown": "^10.1.0",
     "superjson": "^2.2.5",
     "swagger-parser": "^10.0.3",
-    "tailwind-merge": "^3.3.1",
+    "tailwind-merge": "^3.4.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
