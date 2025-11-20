@@ -13,3 +13,4 @@ jobs:
       - uses: stoplightio/spectral-action@v0.8.13
         with:
           file_glob: 'apps/**/openapi*.{yaml,yml,json},packages/**/openapi*.{yaml,yml,json}'
+          spectral_ruleset: 'spectral.yml'
