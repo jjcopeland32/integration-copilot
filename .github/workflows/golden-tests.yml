@@ -39,6 +39,8 @@ jobs:
       - run: pnpm -w install --frozen-lockfile
       - run: pnpm -w db:migrate
       - run: pnpm -w build
+      - name: Build web app
+        run: pnpm -C apps/web build
       - name: Start web app
         run: pnpm --filter @integration-copilot/web start &>/tmp/web.log &
       - name: Wait for healthcheck

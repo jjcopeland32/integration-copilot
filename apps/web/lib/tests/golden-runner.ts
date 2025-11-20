@@ -1,5 +1,10 @@
-import { Actor, PlanStatus, Prisma, TestSuite } from '@prisma/client';
-import type { SuiteRunResult } from '@integration-copilot/testkit';
+import {
+  Actor,
+  PlanStatus,
+  Prisma,
+  TestSuite as PrismaTestSuite,
+} from '@prisma/client';
+import type { SuiteRunResult, TestSuite as RunnerTestSuite } from '@integration-copilot/testkit';
 import { prisma } from '@/lib/prisma';
 import {
   normalizePhaseConfig,
@@ -155,8 +160,18 @@ function buildCaseSnapshots(results: RunnerCaseResult[]): CaseSnapshot[] {
   });
 }
 
+function buildRunnerSuite(record: PrismaTestSuite): RunnerTestSuite {
+  const rawCases = Array.isArray(record.cases) ? (record.cases as unknown[]) : [];
+  return {
+    name: record.name,
+    version: record.version,
+    cases: rawCases as unknown as RunnerTestSuite['cases'],
+  };
+}
+
 export type SuiteExecutionContext = {
-  suiteRecord: TestSuite;
+  suiteRecord: PrismaTestSuite;
+  runnerSuite: RunnerTestSuite;
   categorizedCases: CategorizedTestCase[];
   enabledPhaseSet: Set<PhaseKey>;
   /**
@@ -183,7 +198,7 @@ async function loadEphemeralSuiteExecutionContext(
   const categorizedCases = normalizeCases(rawCases);
   const now = new Date();
 
-  const suiteRecord: TestSuite = {
+  const suiteRecord: PrismaTestSuite = {
     id: suiteId,
     projectId: 'ephemeral-project',
     name: suite.name,
@@ -195,6 +210,13 @@ async function loadEphemeralSuiteExecutionContext(
 
   return {
     suiteRecord,
+    runnerSuite: {
+      name: suite.name,
+      version: suite.version ?? '1.0.0',
+      cases: Array.isArray(suite.cases)
+        ? (suite.cases as unknown as RunnerTestSuite['cases'])
+        : [],
+    },
     categorizedCases,
     enabledPhaseSet,
     persistenceDisabled: true,
@@ -207,7 +229,7 @@ export async function loadSuiteExecutionContext(
 ): Promise<SuiteExecutionContext> {
   const allowFallback = process.env.COPILOT_TESTKIT_FALLBACK === 'file';
 
-  let suiteRecord: TestSuite | null = null;
+  let suiteRecord: PrismaTestSuite | null = null;
   try {
     suiteRecord = await prisma.testSuite.findUnique({
       where: { id: suiteId },
@@ -253,6 +275,7 @@ export async function loadSuiteExecutionContext(
 
   return {
     suiteRecord,
+    runnerSuite: buildRunnerSuite(suiteRecord),
     categorizedCases,
     enabledPhaseSet,
   };
