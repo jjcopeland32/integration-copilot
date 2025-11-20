@@ -99,15 +99,17 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### 🔐 HMAC Trace Ingest
 
 ```bash
-export TELEMETRY_SIGNING_SECRET=test
-SIG=$(node -e "const payload=JSON.stringify({hello:'world'});const h=require('crypto').createHmac('sha256',process.env.TELEMETRY_SIGNING_SECRET).update(payload).digest('hex');console.log(h)")
+export PROJECT_ID=<project-id>
+export TELEMETRY_SECRET=<secret-from-project-telemetry-tab>
+PAYLOAD='{"projectId":"'"$PROJECT_ID"'","requestMeta":{"method":"POST","path":"/payments"},"responseMeta":{"status":200},"verdict":"pass"}'
+SIG=$(node -e "const crypto=require('crypto');const [payload, secret]=process.argv.slice(2);process.stdout.write(crypto.createHmac('sha256', secret).update(payload).digest('hex'));" "$PAYLOAD" "$TELEMETRY_SECRET")
 curl -sS -X POST http://localhost:3000/api/trace \
   -H 'content-type: application/json' \
   -H "x-trace-signature: $SIG" \
-  -d '{"hello":"world","requestMeta":{"cardNumber":"4111 1111 1111 1111"}}'
+  -d "$PAYLOAD"
 ```
 
-The server will persist a redacted payload (card numbers, CVVs, SSNs, and passwords are scrubbed by default) and return `{ ok: true }` when the signature is valid.
+The server will persist a redacted payload (card numbers, CVVs, SSNs, and passwords are scrubbed by default) and return `{ ok: true }` when the signature is valid. Grab the per-project signing secret from the **Telemetry** panel inside any project page.
 
 - **UI:** Visit [`/specs`](http://localhost:3000/specs), load the Stripe-style or Todo sample spec, generate mocks/tests, then go to `/tests` and click **Run All**. Suites execute against the auto-started mock for that project, emit trace rows, and update the plan board automatically.
 - **CLI:**

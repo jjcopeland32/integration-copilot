@@ -8,14 +8,16 @@ import { createValidator } from '@/packages/validator/src/middleware/express';
 const app = express();
 app.use(express.json());
 
-app.use(createValidator({
-  projectId: 'proj_demo',
-  telemetryUrl: process.env.APP_URL + '/api/trace',
-  signingSecret: process.env.TELEMETRY_SIGNING_SECRET!,
-  schemaRef: '#/components/schemas/Charge',
-  rules: { requireIdempotencyKey: true },
-  redact: { fields: ['cardNumber', 'cvv'] },
-}));
+app.use(
+  createValidator({
+    projectId: 'proj_demo',
+    telemetryUrl: process.env.APP_URL + '/api/trace',
+    signingSecret: process.env.PROJECT_TELEMETRY_SECRET!, // grab from the Telemetry tab
+    schemaRef: '#/components/schemas/Charge',
+    rules: { requireIdempotencyKey: true },
+    redact: { fields: ['cardNumber', 'cvv'] },
+  })
+);
 
 app.post('/charges', (req, res) => {
   res.status(200).send({ id: 'ch_123', status: 'succeeded' });
@@ -37,7 +39,7 @@ async function handler(req: NextRequest) {
 export const POST = withValidator(handler, {
   projectId: 'proj_demo',
   telemetryUrl: process.env.APP_URL + '/api/trace',
-  signingSecret: process.env.TELEMETRY_SIGNING_SECRET!,
+  signingSecret: process.env.PROJECT_TELEMETRY_SECRET!, // grab from the Telemetry tab
   schemaRef: '#/components/schemas/Charge',
   rules: { requireIdempotencyKey: true },
 });

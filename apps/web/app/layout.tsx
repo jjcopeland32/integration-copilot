@@ -22,9 +22,6 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const missingEnv: string[] = [];
-  if (!process.env.TELEMETRY_SIGNING_SECRET) {
-    missingEnv.push('TELEMETRY_SIGNING_SECRET');
-  }
   if (!process.env.APP_URL) {
     missingEnv.push('APP_URL');
   }

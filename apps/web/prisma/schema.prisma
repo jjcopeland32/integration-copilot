@@ -58,6 +58,7 @@ model Project {
   status      ProjectStatus @default(DRAFT)
   vendorConfig Json?
   phaseConfig Json? @default("{}")
+  telemetrySecret String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   specs       Spec[]
@@ -162,6 +163,7 @@ model Trace {
   requestMeta Json
   responseMeta Json
   verdict     String
+  signatureStatus String @default("valid")
   redaction   Json?
   createdAt   DateTime @default(now())
 }
