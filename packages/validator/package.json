@@ -9,7 +9,7 @@
     "dev": "tsc -p tsconfig.json --watch"
   },
   "dependencies": {
-    "zod": "^3.23.8",
+    "zod": "^4.1.12",
     "express": "^4.21.0"
   },
   "devDependencies": {
