@@ -55,7 +55,7 @@ jobs:
       - name: Run golden tests
         run: pnpm -w testkit:run --envKey=MOCK --saveArtifacts
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: testruns
           path: ./.artifacts/testruns/**
