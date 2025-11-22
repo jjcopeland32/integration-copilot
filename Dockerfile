@@ -4,15 +4,20 @@ RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/*/package.json ./packages/
-COPY apps/*/package.json ./apps/
+COPY apps/web/package.json ./apps/web/
+COPY packages/connectors/package.json ./packages/connectors/
+COPY packages/mockgen/package.json ./packages/mockgen/
+COPY packages/orchestrator/package.json ./packages/orchestrator/
+COPY packages/spec-engine/package.json ./packages/spec-engine/
+COPY packages/testkit/package.json ./packages/testkit/
+COPY packages/validator/package.json ./packages/validator/
 COPY tools ./tools
 ENV SKIP_ENSURE_WORKSPACE=1
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app /app
 COPY . .
 RUN pnpm build:packages
 RUN pnpm -C apps/web build
