@@ -9,6 +9,7 @@ if (!process.env.COPILOT_WORKSPACE_ROOT) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: { serverActions: { bodySizeLimit: '2mb' } },
+  output: 'standalone',
   images: {
     remotePatterns: [
       {
