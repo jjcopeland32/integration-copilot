@@ -59,8 +59,8 @@ importers:
         specifier: ^0.552.0
         version: 0.552.0(react@19.2.0)
       marked:
-        specifier: ^16.4.1
-        version: 16.4.1
+        specifier: ^17.0.0
+        version: 17.0.0
       next:
         specifier: 15.0.0
         version: 15.0.0(react-dom@18.3.1(react@19.2.0))(react@19.2.0)
@@ -2500,8 +2500,8 @@ packages:
     resolution: {integrity: sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw==}
     engines: {node: '>=10'}
 
-  marked@16.4.1:
-    resolution: {integrity: sha512-ntROs7RaN3EvWfy3EZi14H4YxmT6A5YvywfhO+0pm+cH/dnSQRmdAmoFIc3B9aiwTehyk7pESH4ofyBY+V5hZg==}
+  marked@17.0.0:
+    resolution: {integrity: sha512-KkDYEWEEiYJw/KC+DVm1zzlpMQSMIu6YRltkcCvwheCp8HWPXCk9JwOmHJKBlGfzcpzcIt6x3sMnTsRm/51oDg==}
     engines: {node: '>= 20'}
     hasBin: true
 
@@ -5954,7 +5954,7 @@ snapshots:
     dependencies:
       semver: 7.7.3
 
-  marked@16.4.1: {}
+  marked@17.0.0: {}
 
   math-intrinsics@1.1.0: {}
 
