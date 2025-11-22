@@ -21,21 +21,26 @@ jobs:
           --health-cmd="pg_isready -U postgres"
           --health-interval=5s --health-timeout=5s --health-retries=10
     env:
+      APP_URL: http://localhost:3000
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
       MOCK_BASE_URL: http://localhost:4010
       SANDBOX_BASE_URL: ''
       PROD_BASE_URL: ''
       NODE_ENV: test
+      RBAC_DISABLED: 'true'
+      COPILOT_TESTKIT_FALLBACK: file
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: 'pnpm' }
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: 9.0.0
+      - uses: actions/setup-node@v6
+        with: { node-version: 20, cache: 'pnpm' }
       - run: pnpm -w install --frozen-lockfile
       - run: pnpm -w db:migrate
       - run: pnpm -w build
+      - name: Build web app
+        run: pnpm -C apps/web build
       - name: Start web app
         run: pnpm --filter @integration-copilot/web start &>/tmp/web.log &
       - name: Wait for healthcheck
@@ -50,7 +55,7 @@ jobs:
       - name: Run golden tests
         run: pnpm -w testkit:run --envKey=MOCK --saveArtifacts
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: testruns
           path: ./.artifacts/testruns/**

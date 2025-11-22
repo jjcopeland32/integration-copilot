@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { RBACError, requireRole } from '@/lib/rbac';
 import { prisma } from '@/lib/prisma';
+import { ensureTelemetrySecret } from '@/lib/projects/telemetry';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,14 +67,6 @@ export async function POST(req: NextRequest) {
     throw error;
   }
 
-  const secret = process.env.TELEMETRY_SIGNING_SECRET;
-  if (!secret) {
-    return NextResponse.json(
-      { ok: false, error: 'telemetry signing secret not configured' },
-      { status: 500 }
-    );
-  }
-
   const signature = req.headers.get('x-trace-signature');
   if (!signature) {
     return NextResponse.json(
@@ -83,18 +76,31 @@ export async function POST(req: NextRequest) {
   }
 
   const rawBody = await req.text();
-  const expectedSignature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-  const isValid = timingSafeCompare(expectedSignature, signature);
-
-  if (!isValid) {
-    return NextResponse.json({ ok: false, error: 'invalid signature' }, { status: 401 });
-  }
-
   let payload: unknown;
   try {
     payload = rawBody ? JSON.parse(rawBody) : {};
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid JSON payload' }, { status: 400 });
+  }
+
+  const projectId = typeof (payload as any)?.projectId === 'string' ? (payload as any).projectId : null;
+  if (!projectId) {
+    return NextResponse.json({ ok: false, error: 'payload must include projectId' }, { status: 400 });
+  }
+
+  let secret: string;
+  try {
+    secret = await ensureTelemetrySecret(projectId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'project not found';
+    return NextResponse.json({ ok: false, error: message }, { status: 404 });
+  }
+
+  const expectedSignature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+  const isValid = timingSafeCompare(expectedSignature, signature);
+
+  if (!isValid) {
+    return NextResponse.json({ ok: false, error: 'invalid signature' }, { status: 401 });
   }
 
   const fields = new Set(getRedactionList());
@@ -109,10 +115,11 @@ export async function POST(req: NextRequest) {
 
   const traceRecord = await prisma.trace.create({
     data: {
-      projectId: sanitized.projectId,
+      projectId,
       requestMeta: sanitized.requestMeta,
       responseMeta: sanitized.responseMeta,
       verdict: sanitized.verdict,
+      signatureStatus: 'valid',
       redaction: {
         fields: Array.from(fields),
       },

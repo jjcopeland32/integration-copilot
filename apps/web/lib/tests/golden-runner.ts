@@ -1,11 +1,17 @@
-import { Actor, PlanStatus, Prisma, TestSuite } from '@prisma/client';
-import type { SuiteRunResult } from '@integration-copilot/testkit';
+import {
+  Actor,
+  PlanStatus,
+  Prisma,
+  TestSuite as PrismaTestSuite,
+} from '@prisma/client';
+import type { SuiteRunResult, TestSuite as RunnerTestSuite } from '@integration-copilot/testkit';
 import { prisma } from '@/lib/prisma';
 import {
   normalizePhaseConfig,
   PLAN_PHASES,
   type PhaseKey,
 } from '@integration-copilot/orchestrator';
+import { getSuiteById } from '@/lib/test-suites';
 
 type CategorizedTestCase = {
   id: string;
@@ -154,21 +160,100 @@ function buildCaseSnapshots(results: RunnerCaseResult[]): CaseSnapshot[] {
   });
 }
 
+function buildRunnerSuite(record: PrismaTestSuite): RunnerTestSuite {
+  const rawCases = Array.isArray(record.cases) ? (record.cases as unknown[]) : [];
+  return {
+    name: record.name,
+    version: record.version,
+    cases: rawCases as unknown as RunnerTestSuite['cases'],
+  };
+}
+
 export type SuiteExecutionContext = {
-  suiteRecord: TestSuite;
+  suiteRecord: PrismaTestSuite;
+  runnerSuite: RunnerTestSuite;
   categorizedCases: CategorizedTestCase[];
   enabledPhaseSet: Set<PhaseKey>;
+  /**
+   * When true, persistence side effects (TestRun/Trace/PlanItem writes)
+   * are skipped. Used in CI fallback mode where Prisma tables may not exist.
+   */
+  persistenceDisabled?: boolean;
 };
+
+async function loadEphemeralSuiteExecutionContext(
+  suiteId: string
+): Promise<SuiteExecutionContext> {
+  const suite = await getSuiteById(suiteId);
+  if (!suite) {
+    throw new SuiteNotFoundError();
+  }
+
+  const phaseConfig = normalizePhaseConfig(undefined);
+  const enabledPhaseSet = new Set<PhaseKey>(
+    PLAN_PHASES.filter((phase) => phaseConfig[phase.key].enabled).map((phase) => phase.key)
+  );
+
+  const rawCases = Array.isArray(suite.cases) ? (suite.cases as unknown[]) : [];
+  const categorizedCases = normalizeCases(rawCases);
+  const now = new Date();
+
+  const suiteRecord: PrismaTestSuite = {
+    id: suiteId,
+    projectId: 'ephemeral-project',
+    name: suite.name,
+    version: suite.version ?? '1.0.0',
+    cases: suite.cases as unknown as Prisma.JsonValue,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  return {
+    suiteRecord,
+    runnerSuite: {
+      name: suite.name,
+      version: suite.version ?? '1.0.0',
+      cases: Array.isArray(suite.cases)
+        ? (suite.cases as unknown as RunnerTestSuite['cases'])
+        : [],
+    },
+    categorizedCases,
+    enabledPhaseSet,
+    persistenceDisabled: true,
+  };
+}
 
 export async function loadSuiteExecutionContext(
   suiteId: string,
   expectedProjectId?: string
 ): Promise<SuiteExecutionContext> {
-  const suiteRecord = await prisma.testSuite.findUnique({
-    where: { id: suiteId },
-  });
+  const allowFallback = process.env.COPILOT_TESTKIT_FALLBACK === 'file';
+
+  let suiteRecord: PrismaTestSuite | null = null;
+  try {
+    suiteRecord = await prisma.testSuite.findUnique({
+      where: { id: suiteId },
+    });
+  } catch (error) {
+    if (!allowFallback) {
+      throw error;
+    }
+    console.warn(
+      '[golden-runner] Prisma lookup failed for TestSuite; falling back to file-based suite',
+      error
+    );
+    return loadEphemeralSuiteExecutionContext(suiteId);
+  }
+
   if (!suiteRecord) {
-    throw new SuiteNotFoundError();
+    if (!allowFallback) {
+      throw new SuiteNotFoundError();
+    }
+    console.warn(
+      '[golden-runner] TestSuite not found in database; falling back to file-based suite',
+      { suiteId }
+    );
+    return loadEphemeralSuiteExecutionContext(suiteId);
   }
 
   if (expectedProjectId && suiteRecord.projectId !== expectedProjectId) {
@@ -190,6 +275,7 @@ export async function loadSuiteExecutionContext(
 
   return {
     suiteRecord,
+    runnerSuite: buildRunnerSuite(suiteRecord),
     categorizedCases,
     enabledPhaseSet,
   };
@@ -206,7 +292,7 @@ export async function persistSuiteRun({
   origin: string;
   runResult: SuiteRunResult;
 }): Promise<StoredRunResult> {
-  const { suiteRecord, categorizedCases, enabledPhaseSet } = context;
+  const { suiteRecord, categorizedCases, enabledPhaseSet, persistenceDisabled } = context;
   const caseSnapshots = buildCaseSnapshots(runResult.cases);
   const summary = runResult.summary;
   const skipped = Math.max(summary.total - summary.passed - summary.failed, 0);
@@ -225,6 +311,10 @@ export async function persistSuiteRun({
     },
     cases: caseSnapshots,
   };
+
+  if (persistenceDisabled) {
+    return storedResult;
+  }
 
   await prisma.testRun.create({
     data: {

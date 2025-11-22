@@ -1,14 +1,14 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
+import paymentsSuite from '../../../tools/golden-tests.payments.sample.json';
+import financingSuite from '../../../tools/golden-tests.financing.sample.json';
 type GoldenTestSuite = {
   name: string;
   version?: string;
   cases: Array<Record<string, unknown>>;
 };
 
-const SUITE_FILES = [
-  'tools/golden-tests.payments.sample.json',
-  'tools/golden-tests.financing.sample.json',
+const inlineSuites: GoldenTestSuite[] = [
+  paymentsSuite as GoldenTestSuite,
+  financingSuite as GoldenTestSuite,
 ];
 
 let cache: Map<string, GoldenTestSuite> | null = null;
@@ -16,15 +16,8 @@ let cache: Map<string, GoldenTestSuite> | null = null;
 async function loadSuites(): Promise<Map<string, GoldenTestSuite>> {
   if (cache) return cache;
   const suites = new Map<string, GoldenTestSuite>();
-  for (const relativePath of SUITE_FILES) {
-    const absolutePath = path.join(process.cwd(), relativePath);
-    try {
-      const raw = await fs.readFile(absolutePath, 'utf8');
-      const parsed = JSON.parse(raw) as GoldenTestSuite;
-      suites.set(parsed.name, parsed);
-    } catch (error) {
-      console.warn('[TestKit] Failed to load suite', relativePath, error);
-    }
+  for (const suite of inlineSuites) {
+    suites.set(suite.name, suite);
   }
   cache = suites;
   return suites;

@@ -37,6 +37,34 @@
 
 ---
 
+## 🧭 WO-3.2 UI/UX Blueprint
+
+To support the upcoming Partner Core milestones, we’re refreshing the experience for both the buyer console and partner portal:
+
+### Dual Experience Strategy
+- **Buyer Console** (internal teams): deep navy + electric blue palette, left rail navigation (`Dashboard · Projects · Specs · Mocks · Tests · Traces · Plan Board · Reports · Admin`), environment selector, org/project switcher, and observability-first dashboards.
+- **Partner Portal** (vendor teams): indigo + teal palette, simplified nav (`Overview · Checklist · Specs · Mocks · Tests · Traces · Readiness`), contextual guidance, and progress coaching. Separate subdomains keep identities distinct (`console.integrationcopilot.com` vs `{buyer}.partners.integrationcopilot.com`).
+
+### Buyer Console Highlights
+- **Home Dashboard**: readiness hero strip, suites card (pass/fail trend + “Run all”), traces 24h metrics (count, err rate, p95), partner readiness summaries, and an activity feed.
+- **Project Overview Dashboard**: suites widget (`{ pass, fail, lastRunAt }`), traces24h (`count, errRate, p95`), readiness bar by phase, and spec capability summaries (paths, key endpoints).
+- **Telemetry Tab Enhancements**: show `/api/trace` URL, masked HMAC secret w/ rotate action, copy-ready cURL/Node snippets, and last 5 deliveries with signature verdict badges.
+- **Generate Mocks & Tests CTA**: prominent button that kicks off the spec → mock → tests pipeline, surfaces progress per spec, and links to newly generated assets.
+
+### Partner Portal Highlights
+- **Overview**: timeline hero (“You’re on track to go live in {N} days”), checklist progress, recent fails, and telemetry quick stats.
+- **Checklist**: vertical phase-based stepper with auto-pass badges (“Verified by tests”) for suite-linked steps and manual override modal with comment capture.
+- **Tests & Telemetry**: curated suite list with plain-language descriptions plus trace viewer scoped to the partner’s traffic.
+
+### Checklist Automation Model
+- New Prisma models: `ChecklistTemplate`, `ChecklistStep`, `ProjectChecklist`.
+- Each step links to one or more suite IDs; golden test persistence auto-completes steps when all linked suites pass.
+- Manual override stores user, timestamp, comment; buyer console shows audit trail, partner portal surfaces read-only state.
+
+This blueprint guides WO-3.2 delivery: dashboard API, telemetry UI, checklist schema + automation, and the “Generate Mocks & Tests” CTA.
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -71,15 +99,17 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### 🔐 HMAC Trace Ingest
 
 ```bash
-export TELEMETRY_SIGNING_SECRET=test
-SIG=$(node -e "const payload=JSON.stringify({hello:'world'});const h=require('crypto').createHmac('sha256',process.env.TELEMETRY_SIGNING_SECRET).update(payload).digest('hex');console.log(h)")
+export PROJECT_ID=<project-id>
+export TELEMETRY_SECRET=<secret-from-project-telemetry-tab>
+PAYLOAD='{"projectId":"'"$PROJECT_ID"'","requestMeta":{"method":"POST","path":"/payments"},"responseMeta":{"status":200},"verdict":"pass"}'
+SIG=$(node -e "const crypto=require('crypto');const [payload, secret]=process.argv.slice(2);process.stdout.write(crypto.createHmac('sha256', secret).update(payload).digest('hex'));" "$PAYLOAD" "$TELEMETRY_SECRET")
 curl -sS -X POST http://localhost:3000/api/trace \
   -H 'content-type: application/json' \
   -H "x-trace-signature: $SIG" \
-  -d '{"hello":"world","requestMeta":{"cardNumber":"4111 1111 1111 1111"}}'
+  -d "$PAYLOAD"
 ```
 
-The server will persist a redacted payload (card numbers, CVVs, SSNs, and passwords are scrubbed by default) and return `{ ok: true }` when the signature is valid.
+The server will persist a redacted payload (card numbers, CVVs, SSNs, and passwords are scrubbed by default) and return `{ ok: true }` when the signature is valid. Grab the per-project signing secret from the **Telemetry** panel inside any project page.
 
 - **UI:** Visit [`/specs`](http://localhost:3000/specs), load the Stripe-style or Todo sample spec, generate mocks/tests, then go to `/tests` and click **Run All**. Suites execute against the auto-started mock for that project, emit trace rows, and update the plan board automatically.
 - **CLI:**
