@@ -78,6 +78,10 @@ pnpm install
 # AUTH_SECRET=change-me
 # NEXTAUTH_SECRET=change-me
 # TELEMETRY_SIGNING_SECRET=change-me
+# MOCK_HEALTH_INTERVAL_MS=300000
+# MOCK_HEALTH_TIMEOUT_MS=3000
+# MOCK_HEALTH_AUTORESTART=true
+# MOCK_HEALTH_CRON_SECRET=optional-shared-secret
 # POSTGRES_USER=integration
 # POSTGRES_PASSWORD=integration
 # POSTGRES_DB=integration_copilot

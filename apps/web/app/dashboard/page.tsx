@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileCode, Server, TestTube, Activity, TrendingUp, Clock, Zap } from 'lucide-react';
+import { FileCode, Server, TestTube, Activity, TrendingUp, Clock, Zap, AlertTriangle } from 'lucide-react';
 import { useProjectContext } from '@/components/project-context';
 import { trpc } from '@/lib/trpc/client';
 
@@ -150,6 +150,22 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        {unhealthyMocks > 0 && (
+          <Card className="animate-in border-red-200 bg-red-50/60" style={{ animationDelay: '350ms' }}>
+            <CardHeader className="flex flex-row items-center gap-3">
+              <div className="p-2 rounded-lg bg-red-500/90">
+                <AlertTriangle className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl text-red-900">Mock Health Alert</CardTitle>
+                <CardDescription className="text-red-700">
+                  {unhealthyMocks} mock{unhealthyMocks > 1 ? 's' : ''} reported unhealthy. Run health checks or restart.
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+        )}
+
         <Card className="animate-in" style={{ animationDelay: '400ms' }}>
           <CardHeader>
             <div className="flex items-center gap-3">
