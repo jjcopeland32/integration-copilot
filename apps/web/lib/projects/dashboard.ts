@@ -23,6 +23,12 @@ type TraceLike = {
 };
 
 export type ProjectDashboardSummary = {
+  mocks: {
+    total: number;
+    running: number;
+    healthy: number;
+    unhealthy: number;
+  };
   suites: {
     pass: number;
     fail: number;
@@ -50,6 +56,12 @@ export async function getProjectDashboardSummary(
       where: { id: projectId },
       select: {
         id: true,
+        mocks: {
+          select: {
+            status: true,
+            healthStatus: true,
+          },
+        },
         suites: {
           select: {
             runs: {
@@ -95,11 +107,30 @@ export async function getProjectDashboardSummary(
   }
 
   return {
+    mocks: summarizeMocks(project.mocks as any),
     suites: summarizeSuites(project.suites),
     traces24h: summarizeTraces(recentTraces),
     readinessPct: calculateReadiness(project.planItems),
     specs: summarizeSpecs(project.specs),
   };
+}
+
+function summarizeMocks(
+  mocks: Array<{ status: string; healthStatus?: string | null }>
+): ProjectDashboardSummary['mocks'] {
+  const total = mocks.length;
+  let running = 0;
+  let healthy = 0;
+  let unhealthy = 0;
+
+  for (const mock of mocks) {
+    if (mock.status === 'RUNNING') running += 1;
+    const health = (mock.healthStatus ?? '').toLowerCase();
+    if (health === 'healthy') healthy += 1;
+    if (health === 'unhealthy') unhealthy += 1;
+  }
+
+  return { total, running, healthy, unhealthy };
 }
 
 function summarizeSuites(suites: SuiteWithLatestRun[]): ProjectDashboardSummary['suites'] {

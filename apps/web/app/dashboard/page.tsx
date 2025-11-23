@@ -36,6 +36,8 @@ export default function DashboardPage() {
   const specCount = project.specs.length;
   const mockCount = project.mocks.length;
   const runningMocks = project.mocks.filter((mock: any) => mock.status === 'RUNNING').length;
+  const healthyMocks = project.mocks.filter((mock: any) => (mock as any).healthStatus === 'healthy').length;
+  const unhealthyMocks = project.mocks.filter((mock: any) => (mock as any).healthStatus === 'unhealthy').length;
   const suiteCount = project.suites.length;
   const totalCases = project.suites.reduce((sum: number, suite: any) => {
     const cases = Array.isArray(suite.cases as unknown[]) ? (suite.cases as unknown[]).length : 0;
@@ -85,7 +87,7 @@ export default function DashboardPage() {
     {
       title: 'Mocks',
       value: mockCount,
-      change: `${runningMocks} running`,
+      change: `${runningMocks} running • ${healthyMocks} healthy${unhealthyMocks ? ` • ${unhealthyMocks} unhealthy` : ''}`,
       icon: Server,
       gradient: 'from-green-500 to-emerald-500',
       bgGradient: 'from-green-50 to-emerald-50',

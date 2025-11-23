@@ -32,6 +32,11 @@ export default function MocksPage() {
       await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
     },
   });
+  const healthMutation = trpc.mock.checkHealth.useMutation({
+    onSuccess: async () => {
+      await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
+    },
+  });
   const deleteMutation = trpc.mock.delete.useMutation({
     onSuccess: async () => {
       await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
@@ -189,6 +194,15 @@ export default function MocksPage() {
                       disabled={!mock.hasPostmanCollection}
                     >
                       <Download className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => healthMutation.mutate({ id: mock.id })}
+                      disabled={healthMutation.isPending}
+                    >
+                      <Activity className="h-4 w-4 mr-1" />
+                      {healthMutation.isPending ? 'Checking…' : 'Check'}
                     </Button>
                   </div>
                   {showConfirm && (

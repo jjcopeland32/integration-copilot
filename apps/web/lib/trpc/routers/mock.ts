@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { resolveProject } from '../../workspace';
 import { MockStatus } from '@prisma/client';
 import { ensureMockServer, stopMockServer } from '../../mock-server-manager';
+import { setTimeout as delay } from 'node:timers/promises';
 
 const storedMockConfig = z
   .object({
@@ -167,5 +168,59 @@ export const mockRouter = router({
       return ctx.prisma.mockInstance.delete({
         where: { id: input.id },
       });
+    }),
+
+  checkHealth: publicProcedure
+    .input(z.object({ id: z.string(), timeoutMs: z.number().min(500).max(10000).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const mock = await ctx.prisma.mockInstance.findUnique({
+        where: { id: input.id },
+      });
+      if (!mock) {
+        throw new Error('Mock instance not found');
+      }
+
+      const timeoutMs = input.timeoutMs ?? 3000;
+      const now = new Date();
+      let healthStatus: string = 'unknown';
+      let status = mock.status;
+
+      try {
+        await ensureMockServer(mock, { forceRestart: false });
+        const controller = new AbortController();
+        const timer = delay(timeoutMs, null, { signal: controller.signal }).catch(() => null);
+        const fetchPromise = fetch(mock.baseUrl, {
+          method: 'GET',
+          signal: controller.signal,
+        }).catch((err) => {
+          throw err;
+        });
+        const result = await Promise.race([fetchPromise, timer]);
+        controller.abort();
+        if (result && (result as Response).ok !== undefined) {
+          const res = result as Response;
+          healthStatus = res.ok ? 'healthy' : 'degraded';
+          status = MockStatus.RUNNING;
+        } else {
+          healthStatus = 'unhealthy';
+          status = MockStatus.STOPPED;
+        }
+      } catch (error) {
+        healthStatus = 'unhealthy';
+        status = MockStatus.STOPPED;
+        await stopMockServer(mock.id).catch(() => undefined);
+      }
+
+      const updated = await ctx.prisma.mockInstance.update({
+        where: { id: mock.id },
+        data: {
+          healthStatus,
+          status,
+          lastHealthAt: now,
+          lastStoppedAt: status === MockStatus.STOPPED ? now : mock.lastStoppedAt,
+        },
+      });
+
+      return describeMock(updated as any);
     }),
 });

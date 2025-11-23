@@ -7,8 +7,8 @@ This list captures remaining work items for MVP-ready E2E coverage. Each bullet 
 - Add org/user management + role assignment UI and APIs (project/org routes, membership UI in `apps/web/app/projects/*`).
 
 ## 2) Mock Lifecycle & Cleanup
-- Implement automated health checks/restarts and retention cleanup; port reuse + health/uptime metadata now stored (`apps/web/lib/mock-server-manager.ts`, `prisma/mockInstance`, `/mocks` UI).
-- Surface mock health/uptime on dashboard cards (`apps/web/app/dashboard/page.tsx`).
+- Add automated/scheduled health checks and restart strategy; retention cleanup for stale mocks/ports (port reuse + metadata are stored now). See `apps/web/lib/mock-server-manager.ts`, `apps/web/lib/trpc/routers/mock.ts`, `apps/web/lib/trpc/routers/spec.ts`.
+- Improve dashboard surfacing of health/uptime and add alerts (`apps/web/app/dashboard/page.tsx`).
 
 ## 3) Golden Test Insights & Artifacts
 - Surface per-case results, logs, and trace links in `/tests` UI; add artifact viewer for `.artifacts/testruns` (`apps/web/app/tests/page.tsx`, `apps/web/lib/tests/golden-runner.ts`).
