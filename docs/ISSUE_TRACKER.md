@@ -41,3 +41,4 @@ This list captures remaining work items for MVP-ready E2E coverage. Each bullet 
 ## 10) Documentation & Templates
 - Keep `.env` guidance aligned with required/optional envs (`README_FINAL.md`, `DEPLOYMENT.md`, `TESTING_GUIDE.md`).
 - Decide on `.env.example` policy (restore sanitized template or document copy steps); ensure feature flags documented with actual behavior.
+- CI: ensure Docker workflow has `permissions: packages: write` for GHCR pushes (`.github/workflows/docker.yml`).
