@@ -39,6 +39,11 @@ export interface AppConfig {
     maxRequests: number;
     windowMs: number;
   };
+  mocks: {
+    healthCheckIntervalMs: number;
+    healthCheckTimeoutMs: number;
+    autoRestart: boolean;
+  };
 }
 
 function getEnv(key: string, defaultValue?: string): string {
@@ -110,6 +115,11 @@ export function loadConfig(): AppConfig {
       enabled: getEnvBool('RATE_LIMIT_ENABLED', true),
       maxRequests: getEnvInt('RATE_LIMIT_MAX_REQUESTS', 100),
       windowMs: getEnvInt('RATE_LIMIT_WINDOW_MS', 60000),
+    },
+    mocks: {
+      healthCheckIntervalMs: getEnvInt('MOCK_HEALTH_INTERVAL_MS', 300000), // 5m
+      healthCheckTimeoutMs: getEnvInt('MOCK_HEALTH_TIMEOUT_MS', 3000),
+      autoRestart: getEnvBool('MOCK_HEALTH_AUTORESTART', true),
     },
   };
 }

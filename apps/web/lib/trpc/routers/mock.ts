@@ -4,6 +4,7 @@ import { resolveProject } from '../../workspace';
 import { MockStatus } from '@prisma/client';
 import { ensureMockServer, stopMockServer } from '../../mock-server-manager';
 import { setTimeout as delay } from 'node:timers/promises';
+import { config } from '@/lib/config';
 
 const storedMockConfig = z
   .object({
@@ -97,6 +98,25 @@ async function toMockRecord(ctx: any, id: string) {
   });
 }
 
+async function pingMock(baseUrl: string, timeoutMs: number): Promise<'healthy' | 'unhealthy' | 'degraded'> {
+  const controller = new AbortController();
+  const timer = delay(timeoutMs, null, { signal: controller.signal }).catch(() => null);
+  try {
+    const result = (await Promise.race([
+      fetch(baseUrl, { method: 'GET', signal: controller.signal }).catch((err) => {
+        throw err;
+      }),
+      timer,
+    ])) as Response | null;
+    controller.abort();
+    if (!result) return 'unhealthy';
+    return result.ok ? 'healthy' : 'degraded';
+  } catch {
+    controller.abort();
+    return 'unhealthy';
+  }
+}
+
 export const mockRouter = router({
   list: publicProcedure
     .input(z.object({ projectId: z.string().optional() }).optional())
@@ -180,31 +200,16 @@ export const mockRouter = router({
         throw new Error('Mock instance not found');
       }
 
-      const timeoutMs = input.timeoutMs ?? 3000;
+      const timeoutMs = input.timeoutMs ?? config.mocks.healthCheckTimeoutMs;
       const now = new Date();
       let healthStatus: string = 'unknown';
       let status = mock.status;
 
       try {
         await ensureMockServer(mock, { forceRestart: false });
-        const controller = new AbortController();
-        const timer = delay(timeoutMs, null, { signal: controller.signal }).catch(() => null);
-        const fetchPromise = fetch(mock.baseUrl, {
-          method: 'GET',
-          signal: controller.signal,
-        }).catch((err) => {
-          throw err;
-        });
-        const result = await Promise.race([fetchPromise, timer]);
-        controller.abort();
-        if (result && (result as Response).ok !== undefined) {
-          const res = result as Response;
-          healthStatus = res.ok ? 'healthy' : 'degraded';
-          status = MockStatus.RUNNING;
-        } else {
-          healthStatus = 'unhealthy';
-          status = MockStatus.STOPPED;
-        }
+        const result = await pingMock(mock.baseUrl, timeoutMs);
+        healthStatus = result;
+        status = result === 'unhealthy' ? MockStatus.STOPPED : MockStatus.RUNNING;
       } catch (error) {
         healthStatus = 'unhealthy';
         status = MockStatus.STOPPED;
@@ -222,5 +227,65 @@ export const mockRouter = router({
       });
 
       return describeMock(updated as any);
+    }),
+
+  checkAll: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string().optional(),
+        timeoutMs: z.number().min(500).max(10000).optional(),
+        autoRestart: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await resolveProject(ctx.prisma, {
+        projectId: input?.projectId,
+        userId: ctx.userId,
+        orgId: ctx.orgId,
+      });
+      const timeoutMs = input.timeoutMs ?? config.mocks.healthCheckTimeoutMs;
+      const autoRestart = input.autoRestart ?? config.mocks.autoRestart;
+      const mocks = await ctx.prisma.mockInstance.findMany({
+        where: { projectId: project.id },
+      });
+
+      const results: any[] = [];
+      for (const mock of mocks) {
+        const now = new Date();
+        let healthStatus: string = 'unknown';
+        let status = mock.status;
+        try {
+          const result = await pingMock(mock.baseUrl, timeoutMs);
+          healthStatus = result;
+          if (result === 'unhealthy') {
+            status = MockStatus.STOPPED;
+            await stopMockServer(mock.id).catch(() => undefined);
+            if (autoRestart) {
+              await ensureMockServer(mock, { forceRestart: true }).catch(() => undefined);
+              status = MockStatus.RUNNING;
+              healthStatus = 'healthy';
+            }
+          } else {
+            status = MockStatus.RUNNING;
+          }
+        } catch {
+          healthStatus = 'unhealthy';
+          status = MockStatus.STOPPED;
+          await stopMockServer(mock.id).catch(() => undefined);
+        }
+
+        const updated = await ctx.prisma.mockInstance.update({
+          where: { id: mock.id },
+          data: {
+            status,
+            healthStatus,
+            lastHealthAt: now,
+            lastStoppedAt: status === MockStatus.STOPPED ? now : mock.lastStoppedAt,
+          },
+        });
+        results.push(describeMock(updated as any));
+      }
+
+      return { ok: true, mocks: results };
     }),
 });

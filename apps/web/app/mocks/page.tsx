@@ -49,6 +49,7 @@ export default function MocksPage() {
   const runningMocks = useMemo(() => mocks.filter((mock) => mock.status === 'RUNNING').length, [mocks]);
 
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [checkingAll, setCheckingAll] = useState(false);
 
   const handleDownload = (mock: MockSummary) => {
     if (!mock.postmanCollection) return;
@@ -98,6 +99,20 @@ export default function MocksPage() {
         <div className="mt-4 flex gap-4 text-sm text-gray-600">
           <span>Total mocks: <strong>{totalMocks}</strong></span>
           <span>Running: <strong>{runningMocks}</strong></span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto"
+            onClick={async () => {
+              setCheckingAll(true);
+              await trpc.mock.checkAll.mutateAsync({ projectId: projectId ?? undefined }).catch(() => {});
+              await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
+              setCheckingAll(false);
+            }}
+            disabled={checkingAll}
+          >
+            {checkingAll ? 'Checking…' : 'Check all'}
+          </Button>
         </div>
       </div>
 
