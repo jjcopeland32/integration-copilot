@@ -9,7 +9,7 @@
 
 **Integration Copilot** reduces API partner integration time by 50% through automated spec processing, mock generation, and comprehensive testing.
 
-![Dashboard](https://img.shields.io/badge/Status-Production_Ready-success)
+![Dashboard](https://img.shields.io/badge/Status-Core_Build_Complete-success)
 
 ---
 
@@ -19,13 +19,13 @@
 - **OpenAPI/AsyncAPI Import** – Load and normalize API specifications into Prisma
 - **Blueprint Generation** – Automated integration documentation per spec
 - **Mock Server Automation** – Generate + auto-start Express mocks with latency/rate-limit simulation
-- **Golden Tests** – 10 comprehensive suites (38 tests) stored per project and runnable via `/api/tests/run`, complete with per-case UI insights and downloadable run artifacts
+- **Golden Tests** – 10 comprehensive suites (38 tests) stored per project and runnable via `/api/tests/run`, with suite-level UI summaries and JSON artifacts (see `docs/ISSUE_TRACKER.md` for planned per-case UI)
 - **Project Lifecycle** – Create/delete projects, attach specs, and manage active project context
 - **Trace Validation** – Request/response validation and logging (scoped to each project)
 - **Plan Board** – 5-phase integration roadmap backed by real `PlanItem` records, auto-updates when telemetry meets criteria
 - **Readiness Reports** – Auto-generated go-live assessment with live metrics from stored tests/traces + markdown viewer
 
-> Looking ahead: the partner-facing portal (see `docs/partner-portal.md`) will expose these same mocks/tests/plan workflows directly to integrator teams, plus an AI assistant that summarizes failures and next steps.
+> Looking ahead: the partner-facing portal (see `docs/partner-portal.md`) will expose these same mocks/tests/plan workflows directly to integrator teams, plus an AI assistant that summarizes failures and next steps. Active work items are tracked in `docs/ISSUE_TRACKER.md`.
 
 ### 🎨 Modern UI
 - ✨ Smooth animations and transitions
@@ -68,8 +68,8 @@ This blueprint guides WO-3.2 delivery: dashboard API, telemetry UI, checklist sc
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- pnpm 8+
+- Node.js 22+
+- pnpm 9+
 
 ### Installation
 
@@ -93,6 +93,11 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+## 📋 Tracked Issues / Remaining Work
+
+Core implementation is complete, but several productization tasks remain (mock lifecycle controls, detailed golden test insights, production auth, telemetry automation, Slack/Jira hooks, etc.). The authoritative list with file-level pointers lives in [`docs/ISSUE_TRACKER.md`](docs/ISSUE_TRACKER.md).
 
 ---
 

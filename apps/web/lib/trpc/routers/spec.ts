@@ -189,46 +189,120 @@ export const specRouter = router({
       if (!specRecord) throw new Error('Spec not found');
 
       const normalized = await ensureNormalizedSpec(ctx.prisma, input.specId);
-      const mockCount = await ctx.prisma.mockInstance.count({
+      const existingInstances = await ctx.prisma.mockInstance.findMany({
         where: { projectId: specRecord.projectId },
       });
-      const port = 3001 + mockCount;
-      const baseUrl = `http://localhost:${port}`;
-      const settings = {
+
+      const existingForSpec = existingInstances.find((instance) => {
+        const config = instance.config as any;
+        return config?.specId === specRecord.id;
+      });
+
+      const usedPorts = new Set<number>();
+      for (const inst of existingInstances) {
+        const port =
+          typeof inst.port === 'number' && Number.isFinite(inst.port)
+            ? inst.port
+            : (() => {
+                try {
+                  const url = new URL(inst.baseUrl);
+                  return url.port ? Number(url.port) : null;
+                } catch {
+                  return null;
+                }
+              })();
+        if (typeof port === 'number') usedPorts.add(port);
+      }
+
+      const allocatePort = () => {
+        if (existingForSpec) {
+          const port =
+            typeof existingForSpec.port === 'number' && Number.isFinite(existingForSpec.port)
+              ? existingForSpec.port
+              : (() => {
+                  try {
+                    const url = new URL(existingForSpec.baseUrl);
+                    return url.port ? Number(url.port) : null;
+                  } catch {
+                    return null;
+                  }
+                })();
+          if (typeof port === 'number') return port;
+        }
+        let port = 3001;
+        while (usedPorts.has(port)) {
+          port += 1;
+        }
+        return port;
+      };
+
+      const port = allocatePort();
+      const baseUrl = existingForSpec?.baseUrl ?? `http://localhost:${port}`;
+
+      const defaultSettings = {
         baseUrl,
         enableLatency: true,
         latencyMs: 50,
         enableRateLimit: true,
         rateLimit: 100,
       };
-      const { routes, postmanCollection } = mockGenerator.generate(normalized, settings);
+      const existingSettings = (existingForSpec?.config as any)?.settings ?? {};
+      const mergedSettings = {
+        ...defaultSettings,
+        ...existingSettings,
+        baseUrl,
+      };
 
-      const mock = await ctx.prisma.mockInstance.create({
+      const { routes, postmanCollection } = mockGenerator.generate(normalized, mergedSettings);
+
+      const now = new Date();
+      let mock =
+        existingForSpec ??
+        (await ctx.prisma.mockInstance.create({
+          data: {
+            projectId: specRecord.projectId,
+            baseUrl,
+            port,
+            status: MockStatus.STOPPED,
+            healthStatus: 'unknown',
+            config: {} as Prisma.InputJsonValue,
+          },
+        }));
+
+      mock = await ctx.prisma.mockInstance.update({
+        where: { id: mock.id },
         data: {
-          projectId: specRecord.projectId,
           baseUrl,
-          status: MockStatus.STOPPED,
+          port,
+          status: MockStatus.RUNNING,
+          healthStatus: 'healthy',
+          lastStartedAt: now,
+          lastHealthAt: now,
+          lastStoppedAt: null,
           config: {
             specId: specRecord.id,
             specName: specRecord.name,
             routes,
             postmanCollection,
-            settings,
+            settings: mergedSettings,
           } as unknown as Prisma.InputJsonValue,
         },
       });
 
-      await ensureMockServer(mock);
-      await ctx.prisma.mockInstance.update({
-        where: { id: mock.id },
-        data: { status: MockStatus.RUNNING },
-      });
+      await ensureMockServer(
+        {
+          id: mock.id,
+          baseUrl: mock.baseUrl,
+          port: mock.port,
+          config: mock.config,
+        },
+        { forceRestart: true }
+      );
 
       return {
         success: true,
         mock: {
-          ...mock,
-          status: MockStatus.RUNNING,
+          ...describeMock(mock as any),
         },
         routes,
       };

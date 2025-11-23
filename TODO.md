@@ -1,9 +1,11 @@
 # Integration Copilot – TODO / Priorities
 
+For a detailed, file-level tracker, see `docs/ISSUE_TRACKER.md`.
+
 ## 1. Mock Lifecycle & Cleanup
-- Reuse/reserve ports per spec to prevent runaway listeners
-- Display health/uptime metadata for each running mock
-- Surface active mock count + controls on dashboard
+- Add automated health checks/restart logic for mocks (beyond current metadata/uptime tracking)
+- Add bulk delete/reset + retention policy for stale mocks/ports
+- Surface mock health/uptime on dashboard cards (mocks page now shows health/uptime)
 
 ## 2. Golden Test Insights
 - Provide download links or modal views for failure logs

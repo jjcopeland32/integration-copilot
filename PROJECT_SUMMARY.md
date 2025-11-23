@@ -390,6 +390,8 @@ pnpm build:all
 4. Emit trace rows for mock/test traffic and tie them to plan/report evidence
 5. Add automated spec ingestion (SDK/webhook) to keep projects synchronized
 
+For the active, file-level tracker of these items, see [`docs/ISSUE_TRACKER.md`](docs/ISSUE_TRACKER.md).
+
 ---
 
 ## 📚 Documentation Index

@@ -298,10 +298,12 @@ This keeps the UI fully type-safe while letting you extend workflows without rew
 - [x] tRPC API routes compile
 - [x] TypeScript type checking passes
 - [x] Next.js build succeeds
-- [ ] Connect to real database
-- [ ] Test tRPC queries with real data
-- [ ] Add authentication flow
-- [ ] E2E tests with Playwright
+- [x] Connect to real database (Prisma/Postgres)
+- [x] Test tRPC queries with real data
+- [ ] Add production-ready authentication flow (Auth.js + Prisma users/memberships)
+- [ ] E2E tests with Playwright/Cypress against the built container
+
+See `docs/ISSUE_TRACKER.md` for the current open items and file-level pointers.
 
 ---
 

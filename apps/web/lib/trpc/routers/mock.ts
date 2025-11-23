@@ -58,12 +58,25 @@ function describeMock(instance: Awaited<ReturnType<typeof toMockRecord>>) {
     id: instance.id,
     status: instance.status,
     baseUrl: instance.baseUrl,
+    healthStatus: (instance as any).healthStatus ?? 'unknown',
     createdAt: instance.createdAt,
     updatedAt: instance.updatedAt,
     projectId: instance.projectId,
     specName: config?.specName ?? 'Mock Service',
     specId: config?.specId ?? null,
-    port: Number.isNaN(port) ? null : port,
+    port: Number.isNaN(port) ? (instance as any).port ?? null : port,
+    lastStartedAt: (instance as any).lastStartedAt ?? null,
+    lastStoppedAt: (instance as any).lastStoppedAt ?? null,
+    lastHealthAt: (instance as any).lastHealthAt ?? null,
+    uptimeSeconds:
+      instance.status === MockStatus.RUNNING && (instance as any).lastStartedAt
+        ? Math.max(
+            0,
+            Math.round(
+              (Date.now() - new Date((instance as any).lastStartedAt as Date).getTime()) / 1000
+            )
+          )
+        : 0,
     routeCount: routeSummaries.length,
     routes: routeSummaries,
     hasPostmanCollection: Boolean(config?.postmanCollection),
@@ -119,10 +132,17 @@ export const mockRouter = router({
       if (!mock) {
         throw new Error('Mock instance not found');
       }
-      await ensureMockServer(mock);
+      await ensureMockServer(mock, { forceRestart: true });
+      const now = new Date();
       return ctx.prisma.mockInstance.update({
         where: { id: input.id },
-        data: { status: MockStatus.RUNNING },
+        data: {
+          status: MockStatus.RUNNING,
+          healthStatus: 'healthy',
+          lastStartedAt: now,
+          lastHealthAt: now,
+          lastStoppedAt: null,
+        },
       });
     }),
 
@@ -132,7 +152,11 @@ export const mockRouter = router({
       await stopMockServer(input.id);
       return ctx.prisma.mockInstance.update({
         where: { id: input.id },
-        data: { status: MockStatus.STOPPED },
+        data: {
+          status: MockStatus.STOPPED,
+          healthStatus: 'stopped',
+          lastStoppedAt: new Date(),
+        },
       });
     }),
 

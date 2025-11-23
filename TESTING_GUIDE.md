@@ -228,16 +228,18 @@ The page shows 10 golden test categories:
 
 ### ✅ Fully Functional Today
 - **Projects/Specs** – Real Prisma data, automation CTA, inline import
-- **Mocks** – Generates + starts actual Express servers, start/stop controls work
-- **Tests** – Runs suites against the running mock via `/api/tests/run`, persists results
+- **Mocks** – Generates + starts Express servers, start/stop controls work
+- **Tests** – Golden suites runnable via `/api/tests/run`, results persisted
 - **Plan Board & Reports** – Backed by real `PlanItem` + `Report` rows, auto-seeded per project
-- **Traces** – Displays stored trace rows scoped to the active project
+- **Traces** – HMAC-protected ingestion with redaction; visible per project
 
-### ⚠️ Still in Progress
-- **Dashboard metrics** – Currently show static/demo data
-- **Per-case test insights** – UI only shows summary counts (artifacts available in logs)
-- **Mock lifecycle cleanup** – No delete/reset controls yet, so ports accumulate
-- **Telemetry loop** – Plan board + reports don’t yet auto-update based on trace/test outcomes
+### ⚠️ Still in Progress (see `docs/ISSUE_TRACKER.md`)
+- Automated mock health checks/restarts and dashboard surfacing (basic health/uptime now shown on mocks page)
+- Per-case test insights + artifact viewer + trace/plan/report linkage in UI
+- Validator HMAC signing/real validation and rate limiting on sensitive APIs
+- Telemetry-driven updates to plan/report metrics and dashboard health data
+- Auth beyond demo credentials; RBAC UI/flows
+- Slack/Jira notification hooks; browser E2E tests in CI
 
 ---
 
@@ -253,11 +255,11 @@ The page shows 10 golden test categories:
 
 ## 🐛 Known Limitations
 
-- **Mock deletion/reset** – You can start/stop mocks but not delete them yet, so unused ports persist
-- **Golden test insights** – Suite results lack per-case details in the UI (check `.artifacts/testruns` for now)
-- **Plan/report automation** – Plan items and readiness scores don’t auto-update based on telemetry yet
-- **Dashboard metrics** – High-level stats still use placeholder data
-- **Auth** – Demo credentials only; no multi-user onboarding flows wired yet
+- Mock health checks are manual; no auto-restart/circuit-breaker yet (ports are reused and mocks can be deleted/reset)
+- Golden test UI lacks per-case details; artifacts live in `.artifacts/testruns`
+- Validator currently stubs signing/validation; rate limiting not enforced
+- Telemetry→plan/report automation is partial; dashboard lacks health/uptime metrics
+- Auth uses demo credentials only; no multi-user onboarding flows yet
 
 ---
 

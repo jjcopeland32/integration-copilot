@@ -48,8 +48,8 @@ Mock instances now spin up real Express servers whenever you generate or start a
 | Concern | Recommendation |
 |---------|----------------|
 | **Process restarts** | Ensure your process manager (PM2, systemd, Vercel function reloader, etc.) can gracefully restart mocks or move them into a dedicated worker service. |
-| **Port allocation** | For multi-tenant hosts, consider proxying mocks behind a path-based router or use dynamic subdomains instead of raw ports. |
-| **Cleanup** | Provide delete/reset controls (coming soon) or schedule a cron job to prune stale `MockInstance` rows so ports don’t accumulate. |
+| **Port allocation** | For multi-tenant hosts, consider proxying mocks behind a path-based router or use dynamic subdomains instead of raw ports (reuse/cleanup tracked in `docs/ISSUE_TRACKER.md`). |
+| **Cleanup** | Until delete/reset controls land (see `docs/ISSUE_TRACKER.md`), schedule a cron job to prune stale `MockInstance` rows so ports don’t accumulate. |
 | **Telemetry** | Pipe mock server logs into your central logging stack to monitor traffic and trace issues. |
 ```
 
@@ -71,8 +71,29 @@ cd integration-copilot
 pnpm install
 
 # Setup environment
-cp .env.example .env
-# Edit .env with your configuration
+# Create .env and populate required values (see README_FINAL.md and docs/ISSUE_TRACKER.md for flags/secrets)
+# Example (local):
+# APP_URL=http://localhost:3000
+# DATABASE_URL=postgresql://integration:integration@localhost:5432/integration_copilot?schema=public
+# AUTH_SECRET=change-me
+# NEXTAUTH_SECRET=change-me
+# TELEMETRY_SIGNING_SECRET=change-me
+# POSTGRES_USER=integration
+# POSTGRES_PASSWORD=integration
+# POSTGRES_DB=integration_copilot
+# Optional feature flags/integrations:
+# FEATURE_MOCK_SERVICE=true
+# FEATURE_GOLDEN_TESTS=true
+# FEATURE_VALIDATOR=true
+# FEATURE_PLAN_BOARD=true
+# FEATURE_READINESS_REPORTS=true
+# FEATURE_SLACK=false
+# FEATURE_JIRA=false
+# SLACK_WEBHOOK_URL=...
+# JIRA_BASE_URL=...
+# JIRA_EMAIL=...
+# JIRA_API_TOKEN=...
+# JIRA_PROJECT_KEY=...
 ```
 
 ### 3. Database Setup

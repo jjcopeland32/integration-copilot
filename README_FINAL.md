@@ -168,12 +168,17 @@ The app will redirect to the dashboard automatically.
 
 ---
 
-## 🔮 Roadmap
+## 🔮 Roadmap / Outstanding Work
 
-1. **Mock lifecycle controls** – Delete/reset unused mock instances, recycle ports, and show richer health/status.
-2. **Golden test insights** – Expose per-case results, surface diffs/logs, and link failing cases to plan/trace evidence.
-3. **Telemetry-driven progress** – Emit trace rows for mock/test traffic and auto-update plan board + readiness metrics when evidence is captured.
-4. **Spec automation** – Allow SDKs/webhooks to push OpenAPI specs directly into the correct project to keep workspaces synchronized.
+For a detailed, file-level tracker see `docs/ISSUE_TRACKER.md`. High-level priorities:
+
+1. **Auth & RBAC** – Replace demo-only credentials with real Auth.js + Prisma users/memberships and UI for roles/invites.
+2. **Mock lifecycle** – Delete/reset unused mocks, reuse ports, show health/uptime, and prevent runaway listeners.
+3. **Golden test insights** – Per-case UI, artifact viewer, and trace/plan/report linkage for failures.
+4. **Telemetry-driven progress** – Wire validator HMAC/validation, rate limiting, and auto-updates to plan/report metrics.
+5. **Spec automation** – Accept SDK/webhook-delivered OpenAPI updates and refresh mocks/tests automatically with drift alerts.
+6. **AI & partner UX** – Hook the assistant to real data and verify partner flows update plan/evidence with RBAC enforced.
+7. **Integrations** – Trigger Slack/Jira on test/report events behind feature flags; add E2E/browser tests in CI against Docker.
 
 These steps complete the path to enterprise-grade, end-to-end coverage.
 

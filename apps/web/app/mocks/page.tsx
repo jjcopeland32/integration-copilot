@@ -111,6 +111,10 @@ export default function MocksPage() {
             const gradient = running ? 'from-green-500 to-emerald-500' : 'from-blue-500 to-cyan-500';
             const portLabel = mock.port ? `${mock.port}` : '—';
             const showConfirm = confirmingId === mock.id;
+            const uptime =
+              running && mock.uptimeSeconds && mock.uptimeSeconds > 0
+                ? `${Math.floor(mock.uptimeSeconds / 60)}m ${mock.uptimeSeconds % 60}s`
+                : '—';
             return (
               <Card key={mock.id} className="card-hover animate-in" style={{ animationDelay: `${index * 90}ms` }}>
                 <CardHeader>
@@ -134,6 +138,11 @@ export default function MocksPage() {
                   </div>
                   <CardTitle className="text-xl">{mock.specName}</CardTitle>
                   <p className="text-sm text-gray-500">{mock.baseUrl}</p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
+                    <Badge variant="outline">Health: {mock.healthStatus ?? 'unknown'}</Badge>
+                    <Badge variant="outline">Uptime: {uptime}</Badge>
+                    <Badge variant="outline">Port {portLabel}</Badge>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-gray-50 to-blue-50 p-3">
@@ -141,7 +150,9 @@ export default function MocksPage() {
                       <Activity className="h-4 w-4 text-blue-600" />
                       <span>{mock.routeCount} routes</span>
                     </div>
-                    <span className="text-xs text-gray-400">Port {portLabel}</span>
+                    <span className="text-xs text-gray-400">
+                      Updated {new Date(mock.updatedAt).toLocaleTimeString()}
+                    </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-gray-50 p-3 text-xs text-gray-500">
                     <div className="flex items-center gap-1">

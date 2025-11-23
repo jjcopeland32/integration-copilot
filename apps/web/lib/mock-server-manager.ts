@@ -4,6 +4,7 @@ type MockInstanceLike = {
   id: string;
   baseUrl: string;
   config?: any;
+  port?: number | null;
 };
 
 type GlobalWithMocks = typeof globalThis & {
@@ -48,7 +49,11 @@ function extractSettings(config: any, baseUrl: string): MockConfig {
   };
 }
 
-function resolvePort(baseUrl: string): number {
+function resolvePort(instance: MockInstanceLike): number {
+  if (typeof instance.port === 'number' && Number.isFinite(instance.port)) {
+    return instance.port;
+  }
+  const baseUrl = instance.baseUrl;
   try {
     const url = new URL(baseUrl);
     if (url.port) return Number(url.port);
@@ -58,9 +63,22 @@ function resolvePort(baseUrl: string): number {
   }
 }
 
-export async function ensureMockServer(instance: MockInstanceLike): Promise<void> {
-  if (serverMap.has(instance.id)) {
+export async function ensureMockServer(
+  instance: MockInstanceLike,
+  opts: { forceRestart?: boolean } = {}
+): Promise<void> {
+  const existing = serverMap.get(instance.id);
+  if (existing && !opts.forceRestart) {
     return;
+  }
+  if (existing) {
+    try {
+      await existing.close();
+    } catch {
+      /* swallow */
+    } finally {
+      serverMap.delete(instance.id);
+    }
   }
 
   const routes = extractRoutes(instance.config);
@@ -71,7 +89,7 @@ export async function ensureMockServer(instance: MockInstanceLike): Promise<void
   const settings = extractSettings(instance.config, instance.baseUrl);
   const server = createMockServer(settings);
   server.registerRoutes(routes);
-  await server.listen(resolvePort(instance.baseUrl));
+  await server.listen(resolvePort(instance));
   serverMap.set(instance.id, server);
 }
 

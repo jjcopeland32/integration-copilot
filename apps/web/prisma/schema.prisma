@@ -121,6 +121,11 @@ model MockInstance {
   baseUrl    String
   config     Json?
   status     MockStatus @default(RUNNING)
+  port       Int?
+  healthStatus String @default("unknown")
+  lastStartedAt DateTime?
+  lastStoppedAt DateTime?
+  lastHealthAt DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
