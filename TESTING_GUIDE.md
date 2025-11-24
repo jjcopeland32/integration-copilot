@@ -259,7 +259,7 @@ The page shows 10 golden test categories:
 - Golden test UI lacks per-case details; artifacts live in `.artifacts/testruns`
 - Validator currently stubs signing/validation; rate limiting not enforced
 - Telemetry→plan/report automation is partial; dashboard lacks health/uptime metrics
-- Auth uses demo credentials only; no multi-user onboarding flows yet
+- Auth is Prisma-backed credentials; multi-user onboarding/OAuth/invite flows are still pending
 
 ---
 

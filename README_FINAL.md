@@ -255,6 +255,15 @@ DATABASE_URL=postgresql://user:password@localhost:5432/integration_copilot
 
 # Authentication
 AUTH_SECRET=your-secret-key-minimum-32-characters
+NEXTAUTH_SECRET=your-secret-key-minimum-32-characters
+# Optional demo credentials (auto-seeded if used)
+DEMO_USER_EMAIL=demo@integration.local
+DEMO_USER_PASSWORD=demo123
+DEMO_USER_NAME=Demo Integrator
+DEMO_ORG_ID=org_demo
+DEMO_ORG_NAME=Demo Integration Org
+DEMO_USER_ROLE=OWNER
+AUTH_TRUST_HOST=true
 
 # Optional: Feature Flags
 FEATURE_MOCK_SERVICE=true

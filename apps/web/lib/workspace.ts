@@ -101,6 +101,23 @@ export async function resolveProject(
     return project;
   }
 
+  // Prefer an existing project for the user's org
+  if (opts.orgId) {
+    const existing = await prisma.project.findFirst({
+      where: { orgId: opts.orgId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (existing) return existing;
+    return prisma.project.create({
+      data: {
+        orgId: opts.orgId,
+        name: 'Starter Project',
+        status: 'ACTIVE',
+      },
+    });
+  }
+
+  // Fallback to demo workspace for unauthenticated contexts
   const { project } = await ensureDemoWorkspace(prisma, {
     userId: opts.userId,
     orgId: opts.orgId,

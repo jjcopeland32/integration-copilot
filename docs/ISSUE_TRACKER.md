@@ -3,8 +3,8 @@
 This list captures remaining work items for MVP-ready E2E coverage. Each bullet links to relevant code or docs to modify.
 
 ## 1) Auth & RBAC
-- Replace demo-only Credentials auth with real Auth.js + Prisma users/memberships (`apps/web/lib/auth.ts`, `prisma/schema.prisma`, `apps/web/lib/rbac.ts`).
-- Add org/user management + role assignment UI and APIs (project/org routes, membership UI in `apps/web/app/projects/*`).
+- Prisma-backed credentials auth is now implemented (`apps/web/lib/auth.ts`); demo login is auto-seeded but passwords/roles come from Prisma.
+- Remaining: org/user management + role assignment UI and APIs (project/org routes, membership UI in `apps/web/app/projects/*`), multi-org selection, and optional OAuth providers.
 
 ## 2) Mock Lifecycle & Cleanup
 - Automated health checks: endpoint + UI trigger + optional GH Action (`.github/workflows/mock-health.yml`). Remaining: retention cleanup for stale mocks/ports. See `apps/web/app/api/mocks/health/route.ts`, `apps/web/lib/trpc/routers/mock.ts`, `apps/web/lib/config.ts`.

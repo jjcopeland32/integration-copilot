@@ -7,13 +7,13 @@ import Image from 'next/image';
 import { Loader2, Lock, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-const DEMO_EMAIL = 'demo@integration.local';
-const DEMO_PASSWORD = 'demo123';
+const DEMO_EMAIL = process.env.NEXT_PUBLIC_DEMO_EMAIL ?? 'demo@integration.local';
+const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_PASSWORD ?? 'demo123';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState(DEMO_EMAIL);
-  const [password, setPassword] = useState(DEMO_PASSWORD);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
 
