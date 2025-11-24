@@ -226,6 +226,11 @@ function applyDatabaseMigrations() {
 async function main() {
   try {
     const env = ensureEnvFile();
+    for (const [key, value] of Object.entries(env)) {
+      if (typeof process.env[key] === 'undefined') {
+        process.env[key] = value;
+      }
+    }
     ensureNextAppEnv();
     const hasDependencies = fileExists('node_modules');
 
