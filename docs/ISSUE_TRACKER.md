@@ -11,7 +11,7 @@ This list captures remaining work items for MVP-ready E2E coverage. Each bullet 
 - Dashboard surfacing: health alert now shows when mocks are unhealthy; extend with more detail/CTA (`apps/web/app/dashboard/page.tsx`).
 
 ## 3) Golden Test Insights & Artifacts
-- Surface per-case results, logs, and trace links in `/tests` UI; add artifact viewer for `.artifacts/testruns` (`apps/web/app/tests/page.tsx`, `apps/web/lib/tests/golden-runner.ts`).
+- Surface per-case results and trace links in `/tests` UI (partial); add artifact viewer for `.artifacts/testruns` (`apps/web/app/tests/page.tsx`, `apps/web/lib/tests/golden-runner.ts`).
 - Link failing cases to plan items/reports (plan/report UIs + persistence).
 
 ## 4) Plan Board & Scope Configuration

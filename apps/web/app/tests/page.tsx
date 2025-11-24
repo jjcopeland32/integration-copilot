@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TestTube, Play, CheckCircle, XCircle, Loader2, Download } from 'lucide-react';
+import { TestTube, Play, CheckCircle, XCircle, Loader2, Download, Link as LinkIcon, FileText } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useProjectContext } from '@/components/project-context';
 
@@ -33,6 +33,40 @@ type SuiteRunResult = {
 };
 
 type CaseResult = NonNullable<SuiteRunResult['cases']>[number];
+
+function CaseRow({ result }: { result: CaseResult }) {
+  const variant = result.status === 'passed' ? 'success' : result.status === 'failed' ? 'error' : 'default';
+  const responseBody =
+    result.response && typeof result.response.body === 'object'
+      ? JSON.stringify(result.response.body, null, 2)
+      : result.response?.body;
+  const traceHint = result.response && typeof result.response.body === 'object' ? result.response.body?.traceId : null;
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-inner space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">{result.name}</p>
+          {result.message && <p className="text-xs text-gray-500">{result.message}</p>}
+        </div>
+        <Badge variant={variant}>{result.status.toUpperCase()}</Badge>
+      </div>
+      {result.response && (
+        <div className="rounded-xl bg-gray-50 p-2 text-xs text-gray-600">
+          <div className="flex items-center justify-between">
+            <span>HTTP {result.response.status ?? '—'}</span>
+            {traceHint && (
+              <span className="inline-flex items-center gap-1 text-indigo-600">
+                <LinkIcon className="h-3 w-3" />
+                trace: {String(traceHint)}
+              </span>
+            )}
+          </div>
+          <pre className="mt-1 overflow-x-auto text-[11px] text-gray-700">{String(responseBody ?? '—')}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function TestsPage() {
   const { projectId, projectName } = useProjectContext();
@@ -114,30 +148,6 @@ export default function TestsPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
-
-  const renderCase = (result: CaseResult) => {
-    const variant = result.status === 'passed' ? 'success' : result.status === 'failed' ? 'error' : 'default';
-    return (
-      <div
-        key={result.id}
-        className="rounded-2xl border border-gray-100 bg-gray-50/80 p-3 text-sm text-gray-700 flex flex-col gap-1"
-      >
-        <div className="flex items-center justify-between">
-          <p className="font-medium">{result.name}</p>
-          <Badge variant={variant}>{result.status.toUpperCase()}</Badge>
-        </div>
-        {result.message && <p className="text-xs text-gray-500">Notes: {result.message}</p>}
-        {result.response && (
-          <p className="text-xs text-gray-500">
-            Response: {result.response.status ?? '—'} •{' '}
-            {typeof result.response.body === 'object'
-              ? JSON.stringify(result.response.body)
-              : String(result.response.body ?? '—')}
-          </p>
-        )}
-      </div>
-    );
   };
 
   return (
@@ -306,11 +316,22 @@ export default function TestsPage() {
                   </div>
                   {caseResults.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Case Results
-                      </p>
-                      <div className="space-y-2 max-h-48 overflow-auto pr-1">
-                        {caseResults.map(renderCase)}
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Case Results
+                        </p>
+                        <Link
+                          href="/traces"
+                          className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700"
+                        >
+                          <FileText className="h-3 w-3" />
+                          View traces
+                        </Link>
+                      </div>
+                      <div className="space-y-2 max-h-56 overflow-auto pr-1">
+                        {caseResults.map((result) => (
+                          <CaseRow key={result.id} result={result} />
+                        ))}
                       </div>
                     </div>
                   )}
