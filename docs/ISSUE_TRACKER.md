@@ -7,7 +7,7 @@ This list captures remaining work items for MVP-ready E2E coverage. Each bullet 
 - Add org/user management + role assignment UI and APIs (project/org routes, membership UI in `apps/web/app/projects/*`).
 
 ## 2) Mock Lifecycle & Cleanup
-- Automated/scheduled health checks: check-all endpoint and UI trigger exist; add cron/scheduler hook and retention cleanup for stale mocks/ports (port reuse + metadata stored). See `apps/web/app/api/mocks/health/route.ts`, `apps/web/lib/trpc/routers/mock.ts`, `apps/web/lib/config.ts`.
+- Automated health checks: endpoint + UI trigger + optional GH Action (`.github/workflows/mock-health.yml`). Remaining: retention cleanup for stale mocks/ports. See `apps/web/app/api/mocks/health/route.ts`, `apps/web/lib/trpc/routers/mock.ts`, `apps/web/lib/config.ts`.
 - Dashboard surfacing: health alert now shows when mocks are unhealthy; extend with more detail/CTA (`apps/web/app/dashboard/page.tsx`).
 
 ## 3) Golden Test Insights & Artifacts
