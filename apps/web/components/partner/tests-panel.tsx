@@ -4,9 +4,20 @@ import { useState } from 'react';
 import { partnerTrpc } from '@/lib/trpc/partner/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FlaskConical, Download, Play, Loader2 } from 'lucide-react';
+import { FlaskConical, Download, Play, Loader2, ChevronDown, ChevronUp, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/utils';
+
+type CaseResult = {
+  id: string;
+  name: string;
+  status: 'passed' | 'failed' | 'skipped';
+  message?: string | null;
+  response?: {
+    status?: number;
+    body?: unknown;
+  };
+};
 
 type RunResults = {
   summary?: {
@@ -15,13 +26,82 @@ type RunResults = {
     failed?: number;
     durationMs?: number;
   };
-  cases?: Array<{
-    id: string;
-    name: string;
-    status: 'passed' | 'failed' | 'skipped';
-    message?: string | null;
-  }>;
+  cases?: CaseResult[];
 };
+
+function CaseResultRow({ result }: { result: CaseResult }) {
+  const [expanded, setExpanded] = useState(result.status === 'failed');
+
+  const statusIcon =
+    result.status === 'passed' ? (
+      <CheckCircle className="h-4 w-4 text-emerald-400" />
+    ) : result.status === 'failed' ? (
+      <XCircle className="h-4 w-4 text-red-400" />
+    ) : (
+      <AlertTriangle className="h-4 w-4 text-yellow-400" />
+    );
+
+  const statusVariant =
+    result.status === 'passed'
+      ? 'success'
+      : result.status === 'failed'
+        ? 'error'
+        : 'warning';
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between gap-3 p-3 text-left hover:bg-white/5 transition"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          {statusIcon}
+          <span className="text-sm font-medium text-white truncate">{result.name}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant={statusVariant} className="text-xs">
+            {result.status.toUpperCase()}
+          </Badge>
+          {expanded ? (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          )}
+        </div>
+      </button>
+      {expanded && (
+        <div className="border-t border-white/10 p-3 space-y-2 bg-black/20">
+          {result.message && (
+            <div className="text-sm">
+              <span className="text-slate-400 text-xs uppercase tracking-wide">Message</span>
+              <p className="text-slate-200 mt-1">{result.message}</p>
+            </div>
+          )}
+          {result.response && (
+            <div className="text-sm">
+              <span className="text-slate-400 text-xs uppercase tracking-wide">Response</span>
+              <div className="mt-1 rounded-xl bg-black/30 p-2">
+                <div className="text-xs text-slate-400 mb-1">
+                  HTTP {result.response.status ?? '—'}
+                </div>
+                {result.response.body && (
+                  <pre className="text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap">
+                    {typeof result.response.body === 'object'
+                      ? JSON.stringify(result.response.body, null, 2)
+                      : String(result.response.body)}
+                  </pre>
+                )}
+              </div>
+            </div>
+          )}
+          {!result.message && !result.response && (
+            <p className="text-sm text-slate-400">No additional details available.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function PartnerTestsPanel() {
   const utils = partnerTrpc.useUtils();
@@ -106,6 +186,9 @@ export function PartnerTestsPanel() {
               | ({ results?: RunResults; createdAt?: Date; id: string })
               | undefined;
             const summary = latestRun?.results?.summary;
+            const caseResults: CaseResult[] = Array.isArray(latestRun?.results?.cases)
+              ? (latestRun.results.cases as CaseResult[])
+              : [];
             const totalCases = Array.isArray(suite.cases)
               ? (suite.cases as unknown[]).length
               : 0;
@@ -173,12 +256,60 @@ export function PartnerTestsPanel() {
                           </>
                         )}
                       </Button>
-                      <Button variant="outline" className="gap-2 text-white" disabled={!latestRun}>
+                      <Button
+                        variant="outline"
+                        className="gap-2 text-white"
+                        disabled={!latestRun}
+                        onClick={() => {
+                          if (!latestRun?.results) return;
+                          const blob = new Blob(
+                            [JSON.stringify(latestRun.results, null, 2)],
+                            { type: 'application/json' }
+                          );
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `${suite.name.replace(/\s+/g, '-').toLowerCase()}-results.json`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+                        }}
+                      >
                         <Download className="h-4 w-4" />
                         Download logs
                       </Button>
                     </div>
                   </div>
+
+                  {/* Per-case results */}
+                  {caseResults.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Test Cases ({caseResults.length})
+                        </p>
+                        {summary && summary.failed && summary.failed > 0 && (
+                          <Badge variant="error" className="text-xs">
+                            {summary.failed} failing
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                        {/* Show failing cases first */}
+                        {caseResults
+                          .slice()
+                          .sort((a, b) => {
+                            if (a.status === 'failed' && b.status !== 'failed') return -1;
+                            if (a.status !== 'failed' && b.status === 'failed') return 1;
+                            return 0;
+                          })
+                          .map((caseResult) => (
+                            <CaseResultRow key={caseResult.id} result={caseResult} />
+                          ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );

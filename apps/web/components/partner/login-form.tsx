@@ -15,9 +15,9 @@ function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-export function PartnerLoginForm() {
+export function PartnerLoginForm({ initialToken = '' }: { initialToken?: string }) {
   const router = useRouter();
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(initialToken);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import clsx from 'clsx';
-import { ArrowLeft, Upload, Play, FileText, Trash2, Loader2, CheckCircle2, AlertCircle, Settings2, Thermometer } from 'lucide-react';
+import { ArrowLeft, Upload, Play, FileText, Trash2, Loader2, CheckCircle2, AlertCircle, Settings2, Thermometer, UserPlus, Users, Mail, Copy, Check, ClipboardCheck } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +51,11 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   const [automationState, setAutomationState] = useState<AutomationState>('idle');
   const [phaseConfig, setPhaseConfig] = useState<PhaseConfigState | null>(null);
   const [phaseMessage, setPhaseMessage] = useState<string | null>(null);
+  const [showInvitePartner, setShowInvitePartner] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePartnerName, setInvitePartnerName] = useState('');
+  const [inviteResult, setInviteResult] = useState<{ token: string; email: string } | null>(null);
+  const [copiedToken, setCopiedToken] = useState(false);
 
   const importSpec = trpc.spec.importFromUrl.useMutation({
     onSuccess: async () => {
@@ -76,6 +81,20 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
       setPhaseMessage(error.message || 'Unable to update plan scope.');
     },
   });
+
+  const invitePartnerMutation = trpc.project.invitePartner.useMutation({
+    onSuccess: async (data) => {
+      setInviteResult({ token: data.token, email: data.email });
+      setInviteEmail('');
+      setInvitePartnerName('');
+      await projectQuery.refetch();
+    },
+  });
+
+  const partnerInvitesQuery = trpc.project.listPartnerInvites.useQuery(
+    { projectId: params.id },
+    { enabled: !!params.id }
+  );
 
   useEffect(() => {
     if (!project) {
@@ -280,7 +299,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card
           className="cursor-pointer hover:shadow-lg transition"
           onClick={() => setShowImport(true)}
@@ -348,14 +367,115 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             )}
           </CardContent>
         </Card>
-        <Card className="hover:shadow-lg transition cursor-not-allowed opacity-60">
+        <Card
+          className="cursor-pointer hover:shadow-lg transition"
+          onClick={() => setShowInvitePartner(true)}
+        >
           <CardHeader>
-            <FileText className="mb-2 h-8 w-8 text-purple-600" />
-            <CardTitle className="text-lg text-gray-900">Generate Report</CardTitle>
-            <CardDescription>Coming soon: readiness reports from project context</CardDescription>
+            <UserPlus className="mb-2 h-8 w-8 text-indigo-600" />
+            <CardTitle className="text-lg text-gray-900">Invite Partner</CardTitle>
+            <CardDescription>Send an invite token to onboard integration partners</CardDescription>
           </CardHeader>
         </Card>
+        <Link href={`/projects/${project.id}/evidence`}>
+          <Card className="cursor-pointer hover:shadow-lg transition h-full">
+            <CardHeader>
+              <ClipboardCheck className="mb-2 h-8 w-8 text-emerald-600" />
+              <CardTitle className="text-lg text-gray-900">Review Evidence</CardTitle>
+              <CardDescription>Approve or reject partner-submitted evidence</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
+
+      {/* Partner Status Section */}
+      {partnerInvitesQuery.data && partnerInvitesQuery.data.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <Users className="h-6 w-6 text-indigo-500" />
+              <div>
+                <CardTitle>Partner Teams</CardTitle>
+                <CardDescription>
+                  {partnerInvitesQuery.data.length} partner team{partnerInvitesQuery.data.length !== 1 ? 's' : ''} linked to this project
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {partnerInvitesQuery.data.map((pp) => (
+                <div
+                  key={pp.id}
+                  className="rounded-2xl border border-gray-100 bg-gradient-to-r from-gray-50 to-indigo-50/50 p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-gray-900">{pp.partnerName}</p>
+                      <p className="text-sm text-gray-500">
+                        {pp.members.length} member{pp.members.length !== 1 ? 's' : ''} • {pp.invites.length} invite{pp.invites.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={
+                        pp.status === 'ACTIVE'
+                          ? 'success'
+                          : pp.status === 'PENDING'
+                            ? 'warning'
+                            : pp.status === 'BLOCKED'
+                              ? 'error'
+                              : 'default'
+                      }
+                    >
+                      {pp.status}
+                    </Badge>
+                  </div>
+                  {pp.members.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      {pp.members.map((m) => (
+                        <div
+                          key={m.id}
+                          className="flex items-center gap-2 text-sm text-gray-600"
+                        >
+                          <Mail className="h-3 w-3" />
+                          <span>{m.user.email}</span>
+                          {m.user.name && (
+                            <span className="text-gray-400">({m.user.name})</span>
+                          )}
+                          <Badge variant="outline" className="ml-auto text-xs">
+                            {m.role}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {pp.invites.filter((inv) => !inv.acceptedAt).length > 0 && (
+                    <div className="mt-3 border-t border-gray-100 pt-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500 mb-2">
+                        Pending Invites
+                      </p>
+                      {pp.invites
+                        .filter((inv) => !inv.acceptedAt)
+                        .map((inv) => (
+                          <div
+                            key={inv.id}
+                            className="flex items-center gap-2 text-sm text-gray-500"
+                          >
+                            <Mail className="h-3 w-3" />
+                            <span>{inv.email}</span>
+                            <span className="text-gray-400">
+                              expires {new Date(inv.expiresAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <ProjectTelemetryPanel projectId={project.id} />
 
@@ -667,6 +787,151 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showInvitePartner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur">
+          <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-white/95 p-6 shadow-2xl">
+            {inviteResult ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-full bg-emerald-100 p-2">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">Invite Created!</h3>
+                    <p className="text-sm text-gray-600">
+                      Share this token with {inviteResult.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                  <label className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    Invite Token
+                  </label>
+                  <div className="mt-2 flex items-center gap-2">
+                    <code className="flex-1 rounded-xl bg-gray-100 px-3 py-2 text-sm font-mono text-gray-900 break-all">
+                      {inviteResult.token}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteResult.token);
+                        setCopiedToken(true);
+                        setTimeout(() => setCopiedToken(false), 2000);
+                      }}
+                    >
+                      {copiedToken ? (
+                        <>
+                          <Check className="h-4 w-4" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="mt-3 text-sm text-gray-500">
+                    The partner can use this token at{' '}
+                    <code className="rounded bg-gray-100 px-1">/partner/login</code> to access their workspace.
+                  </p>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => {
+                      setShowInvitePartner(false);
+                      setInviteResult(null);
+                    }}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-gray-900">Invite Partner</h3>
+                  <p className="text-sm text-gray-600">
+                    Send an invite to onboard a partner team for {project.name}.
+                  </p>
+                </div>
+                <form
+                  className="mt-6 space-y-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    invitePartnerMutation.mutate({
+                      projectId: project.id,
+                      email: inviteEmail,
+                      partnerName: invitePartnerName || undefined,
+                    });
+                  }}
+                >
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Partner Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-gray-900 shadow-inner outline-none transition focus:border-indigo-400"
+                      placeholder="partner@company.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Partner/Company Name (optional)</label>
+                    <input
+                      value={invitePartnerName}
+                      onChange={(e) => setInvitePartnerName(e.target.value)}
+                      className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-gray-900 shadow-inner outline-none transition focus:border-indigo-400"
+                      placeholder="Acme Corp"
+                    />
+                  </div>
+                  {invitePartnerMutation.error && (
+                    <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                      {invitePartnerMutation.error.message || 'Failed to create invite'}
+                    </p>
+                  )}
+                  <div className="flex justify-end gap-3">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setShowInvitePartner(false);
+                        setInviteEmail('');
+                        setInvitePartnerName('');
+                      }}
+                      disabled={invitePartnerMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="gap-2"
+                      disabled={!inviteEmail || invitePartnerMutation.isPending}
+                    >
+                      {invitePartnerMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Creating…
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-4 w-4" />
+                          Create Invite
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}

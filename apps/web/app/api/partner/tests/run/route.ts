@@ -13,6 +13,7 @@ import {
   SuiteNotFoundError,
 } from '@/lib/tests/golden-runner';
 import { resolveOriginFromEnv, type EnvKey } from '@/lib/tests/origin';
+import { withRateLimit, testExecutionConfig } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,12 @@ const PayloadSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // Check rate limit first - test execution is resource-intensive
+  const rateLimitResponse = withRateLimit(req, testExecutionConfig);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   const token = getPartnerSessionTokenFromHeaders(req.headers);
   if (!token) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });

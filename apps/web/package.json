@@ -9,7 +9,10 @@
     "lint": "next lint",
     "prisma": "prisma",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@integration-copilot/connectors": "workspace:*",
@@ -40,6 +43,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.5.5",
     "@types/react": "^18.3.11",

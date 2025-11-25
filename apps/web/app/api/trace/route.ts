@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { RBACError, requireRole } from '@/lib/rbac';
 import { prisma } from '@/lib/prisma';
 import { ensureTelemetrySecret } from '@/lib/projects/telemetry';
+import { withRateLimit, traceIngestionConfig } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +59,12 @@ function timingSafeCompare(expected: string, received: string) {
 }
 
 export async function POST(req: NextRequest) {
+  // Check rate limit first
+  const rateLimitResponse = withRateLimit(req, traceIngestionConfig);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   try {
     await requireRole(['OWNER', 'ADMIN', 'VENDOR', 'PARTNER']);
   } catch (error) {

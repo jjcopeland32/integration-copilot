@@ -7,6 +7,7 @@ import {
   type ReadinessReport,
 } from '@integration-copilot/orchestrator';
 import { Prisma } from '@prisma/client';
+import { notifyReportGenerated } from '@/lib/notifications';
 
 function parseMeta(meta: unknown): ReadinessReport | null {
   if (!meta || typeof meta !== 'object') {
@@ -51,10 +52,20 @@ export const reportRouter = router({
 
       if (reports.length === 0) {
         const readiness = await generator.generateReadinessReport(input.projectId);
-        await generator.saveReport(input.projectId, readiness);
+        const savedReport = await generator.saveReport(input.projectId, readiness);
         reports = await ctx.prisma.report.findMany({
           where: { projectId: input.projectId },
           orderBy: { createdAt: 'desc' },
+        });
+
+        // Send notification for newly generated report
+        notifyReportGenerated({
+          projectId: input.projectId,
+          projectName: project.name,
+          reportId: savedReport.id,
+          readyForProduction: readiness.readyForProduction,
+        }).catch((err) => {
+          console.error('[report] Failed to send report notification:', err);
         });
       }
 

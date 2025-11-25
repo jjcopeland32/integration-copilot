@@ -15,6 +15,12 @@ module.exports = {
       animation: {
         'pulse': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
+      boxShadow: {
+        'neu': '12px 12px 24px rgba(166, 180, 200, 0.4), -12px -12px 24px rgba(255, 255, 255, 0.8)',
+        'neu-sm': '6px 6px 12px rgba(166, 180, 200, 0.4), -6px -6px 12px rgba(255, 255, 255, 0.8)',
+        'neu-inset': 'inset 5px 5px 10px rgba(166, 180, 200, 0.4), inset -5px -5px 10px rgba(255, 255, 255, 0.8)',
+        'neu-hover': '8px 8px 16px rgba(166, 180, 200, 0.5), -8px -8px 16px rgba(255, 255, 255, 0.9)',
+      },
     },
   },
   plugins: [],

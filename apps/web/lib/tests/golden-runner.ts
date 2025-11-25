@@ -12,6 +12,7 @@ import {
   type PhaseKey,
 } from '@integration-copilot/orchestrator';
 import { getSuiteById } from '@/lib/test-suites';
+import { notifyTestFailure, notifyTestSuccess } from '@/lib/notifications';
 
 type CategorizedTestCase = {
   id: string;
@@ -385,6 +386,40 @@ export async function persistSuiteRun({
         })
       )
     );
+  }
+
+  // Send notifications (fire and forget - don't block on these)
+  const project = await prisma.project.findUnique({
+    where: { id: suiteRecord.projectId },
+    select: { name: true },
+  });
+  const projectName = project?.name ?? suiteRecord.projectId;
+
+  // Notify on test failures
+  const failedCases = caseSnapshots.filter((c) => c.status === 'failed');
+  if (failedCases.length > 0) {
+    // Send notification for first failing test (to avoid spam)
+    const firstFailure = failedCases[0];
+    notifyTestFailure({
+      projectId: suiteRecord.projectId,
+      projectName,
+      suiteName: suiteRecord.name,
+      testCaseName: firstFailure.name,
+      errorMessage: firstFailure.message ?? 'Test assertion failed',
+    }).catch((err) => {
+      console.error('[golden-runner] Failed to send test failure notification:', err);
+    });
+  } else if (summary.passed === summary.total && summary.total > 0) {
+    // All tests passed
+    notifyTestSuccess({
+      projectId: suiteRecord.projectId,
+      projectName,
+      suiteName: suiteRecord.name,
+      passed: summary.passed,
+      total: summary.total,
+    }).catch((err) => {
+      console.error('[golden-runner] Failed to send test success notification:', err);
+    });
   }
 
   return storedResult;

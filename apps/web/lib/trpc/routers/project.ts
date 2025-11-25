@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { router, publicProcedure } from '../server';
 import { z } from 'zod';
 import { ensureDemoWorkspace } from '../../workspace';
@@ -12,6 +13,10 @@ import {
   getProjectTelemetrySummary,
   rotateTelemetrySecret,
 } from '@/lib/projects/telemetry';
+
+const INVITE_TTL_HOURS = Number(process.env.PARTNER_INVITE_TTL_HOURS ?? 72);
+const expiresAtFromNow = () =>
+  new Date(Date.now() + INVITE_TTL_HOURS * 60 * 60 * 1000);
 
 const scenarioSchema = z.object({
   id: z.string().min(1).optional(),
@@ -52,6 +57,19 @@ const projectInclude = {
   planItems: { include: { evidences: true } },
   reports: true,
   traces: true,
+  partnerProjects: {
+    include: {
+      invites: {
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      },
+      memberships: {
+        include: {
+          partnerUser: true,
+        },
+      },
+    },
+  },
 } as const;
 
 function mapProject(project: any) {
@@ -61,10 +79,12 @@ function mapProject(project: any) {
     planItems: project.planItems ?? [],
     reports: project.reports ?? [],
     phaseConfig: normalizePhaseConfig(project.phaseConfig),
+    partnerProjects: project.partnerProjects ?? [],
     _count: {
       specs: project.specs?.length ?? 0,
       suites: project.suites?.length ?? 0,
       traces: project.traces?.length ?? 0,
+      partnerProjects: project.partnerProjects?.length ?? 0,
     },
   };
 }
@@ -266,5 +286,111 @@ export const projectRouter = router({
     .mutation(async ({ input }) => {
       const secret = await rotateTelemetrySecret(input.projectId);
       return { secret };
+    }),
+
+  invitePartner: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        email: z.string().email(),
+        partnerName: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { org } = await ensureDemoWorkspace(ctx.prisma, {
+        userId: ctx.userId,
+        orgId: ctx.orgId,
+      });
+
+      const project = await ctx.prisma.project.findFirst({
+        where: {
+          id: input.projectId,
+          orgId: org.id,
+        },
+      });
+
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      // Find or create partner project
+      let partnerProject = await ctx.prisma.partnerProject.findFirst({
+        where: {
+          projectId: project.id,
+          partnerName: input.partnerName ?? input.email,
+        },
+      });
+
+      if (!partnerProject) {
+        partnerProject = await ctx.prisma.partnerProject.create({
+          data: {
+            projectId: project.id,
+            partnerName: input.partnerName ?? input.email,
+            status: 'PENDING',
+          },
+        });
+      }
+
+      const token = randomBytes(24).toString('hex');
+      const expiresAt = expiresAtFromNow();
+
+      const invite = await ctx.prisma.partnerInvite.create({
+        data: {
+          email: input.email.toLowerCase(),
+          token,
+          expiresAt,
+          partnerProjectId: partnerProject.id,
+        },
+      });
+
+      return {
+        inviteId: invite.id,
+        partnerProjectId: partnerProject.id,
+        token,
+        expiresAt,
+        email: input.email,
+      };
+    }),
+
+  listPartnerInvites: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const partnerProjects = await ctx.prisma.partnerProject.findMany({
+        where: { projectId: input.projectId },
+        include: {
+          invites: {
+            orderBy: { createdAt: 'desc' },
+          },
+          memberships: {
+            include: {
+              partnerUser: true,
+            },
+          },
+        },
+      });
+
+      return partnerProjects.map((pp) => ({
+        id: pp.id,
+        partnerName: pp.partnerName,
+        status: pp.status,
+        createdAt: pp.createdAt,
+        invites: pp.invites.map((inv) => ({
+          id: inv.id,
+          email: inv.email,
+          token: inv.token,
+          expiresAt: inv.expiresAt,
+          acceptedAt: inv.acceptedAt,
+          createdAt: inv.createdAt,
+        })),
+        members: pp.memberships.map((m) => ({
+          id: m.id,
+          role: m.role,
+          user: {
+            id: m.partnerUser.id,
+            email: m.partnerUser.email,
+            name: m.partnerUser.name,
+          },
+        })),
+      }));
     }),
 });

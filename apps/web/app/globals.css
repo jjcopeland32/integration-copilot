@@ -14,8 +14,23 @@
     @apply border-gray-200;
   }
   body {
-    @apply bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 text-gray-900 antialiased;
+    @apply text-gray-900 antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background: 
+      linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 25%, #dfe6f0 50%, #e8ecf4 75%, #f0f4f8 100%);
+    background-attachment: fixed;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    opacity: 0.02;
+    z-index: 0;
   }
 }
 
@@ -88,5 +103,54 @@
 
   .shine:hover::before {
     left: 100%;
+  }
+
+  /* Neumorphic utilities */
+  .neu-flat {
+    background: linear-gradient(145deg, #ffffff, #e6e6e6);
+    box-shadow: 5px 5px 15px #d1d1d1, -5px -5px 15px #ffffff;
+  }
+
+  .neu-pressed {
+    background: linear-gradient(145deg, #e6e6e6, #ffffff);
+    box-shadow: inset 5px 5px 10px #d1d1d1, inset -5px -5px 10px #ffffff;
+  }
+
+  .neu-convex {
+    background: linear-gradient(145deg, #ffffff, #e6e6e6);
+    box-shadow: 8px 8px 20px rgba(0, 0, 0, 0.1), -8px -8px 20px rgba(255, 255, 255, 0.9);
+  }
+
+  .neu-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(240,240,255,0.9));
+    box-shadow: 
+      12px 12px 24px rgba(166, 180, 200, 0.4),
+      -12px -12px 24px rgba(255, 255, 255, 0.8),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+  }
+
+  .neu-icon-box {
+    box-shadow: 
+      6px 6px 12px rgba(166, 180, 200, 0.5),
+      -6px -6px 12px rgba(255, 255, 255, 0.9),
+      inset 2px 2px 4px rgba(255, 255, 255, 0.5);
+  }
+
+  .neu-hover {
+    @apply transition-all duration-300;
+  }
+
+  .neu-hover:hover {
+    box-shadow: 
+      8px 8px 16px rgba(166, 180, 200, 0.5),
+      -8px -8px 16px rgba(255, 255, 255, 0.9);
+    transform: translateY(-2px);
+  }
+
+  .neu-hover:active {
+    box-shadow: inset 4px 4px 8px rgba(166, 180, 200, 0.4),
+                inset -4px -4px 8px rgba(255, 255, 255, 0.7);
+    transform: translateY(0);
   }
 }

@@ -5,6 +5,7 @@ import {
   createPartnerRouter,
   partnerProtectedProcedure,
 } from '../server';
+import { notifyEvidenceSubmitted } from '@/lib/notifications';
 
 export const partnerPlanRouter = createPartnerRouter({
   submitEvidence: partnerProtectedProcedure
@@ -39,8 +40,23 @@ export const partnerPlanRouter = createPartnerRouter({
           metadata: input.metadata as any,
         },
         include: {
-          planItem: true,
+          planItem: {
+            include: {
+              project: true,
+            },
+          },
         },
+      });
+
+      // Send notification for evidence submission
+      notifyEvidenceSubmitted({
+        projectId: evidence.planItem.projectId,
+        projectName: evidence.planItem.project.name,
+        partnerName: ctx.session!.partnerProject.partnerName ?? 'Partner',
+        planItemTitle: evidence.planItem.title,
+        phase: evidence.planItem.phase,
+      }).catch((err) => {
+        console.error('[partner-plan] Failed to send evidence notification:', err);
       });
 
       return {

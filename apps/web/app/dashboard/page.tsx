@@ -12,10 +12,10 @@ export default function DashboardPage() {
 
   if (!projectId) {
     return (
-      <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
-        <h2 className="text-2xl font-semibold text-gray-900">Select a project to view the dashboard</h2>
+      <div className="neu-card rounded-3xl p-12 text-center">
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">Select a project to view the dashboard</h2>
         <p className="mt-2 text-sm text-gray-600">Choose a project in the Projects view to focus the dashboard, specs, mocks, tests, and traces.</p>
-        <Link href="/projects" className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg">
+        <Link href="/projects" className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:scale-105 active:scale-95">
           Go to Projects
         </Link>
       </div>
@@ -27,8 +27,11 @@ export default function DashboardPage() {
 
   if (projectQuery.isLoading || !project) {
     return (
-      <div className="rounded-3xl border border-gray-100 bg-white/70 p-12 text-center text-gray-500 shadow-inner">
-        Loading project metrics…
+      <div className="neu-card rounded-3xl p-12 text-center">
+        <div className="animate-pulse">
+          <div className="h-6 w-48 bg-gray-200 rounded-xl mx-auto mb-4" />
+          <div className="h-4 w-32 bg-gray-100 rounded-lg mx-auto" />
+        </div>
       </div>
     );
   }
@@ -125,24 +128,27 @@ export default function DashboardPage() {
         {stats.map((stat, index) => (
           <Card
             key={stat.title}
-            className="card-hover animate-in group"
+            variant="neu"
+            className="neu-hover animate-in group"
             style={{ animationDelay: `${index * 100}ms` }}
           >
             <CardContent className="p-6">
               <div className="flex items-start justify-between mb-4">
-                <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.bgGradient} group-hover:scale-110 transition-transform duration-300`}>
-                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-lg`}>
+                <div className={`p-3 rounded-2xl neu-icon-box bg-gradient-to-br ${stat.bgGradient} group-hover:scale-110 transition-transform duration-300`}>
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-lg`}>
                     <stat.icon className="h-5 w-5 text-white" />
                   </div>
                 </div>
-                <TrendingUp className="h-4 w-4 text-green-500" />
+                <div className="p-2 rounded-xl neu-pressed">
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">{stat.title}</p>
+                <p className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                   {stat.value}
                 </p>
-                <p className="text-xs text-gray-500 mt-2">{stat.change}</p>
+                <p className="text-xs text-gray-500 mt-2 font-medium">{stat.change}</p>
               </div>
             </CardContent>
           </Card>
@@ -151,14 +157,16 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {unhealthyMocks > 0 && (
-          <Card className="animate-in border-red-200 bg-red-50/60" style={{ animationDelay: '350ms' }}>
+          <Card variant="neu" className="animate-in !bg-gradient-to-br !from-red-50 !to-orange-50" style={{ animationDelay: '350ms' }}>
             <CardHeader className="flex flex-row items-center gap-3">
-              <div className="p-2 rounded-lg bg-red-500/90">
-                <AlertTriangle className="h-5 w-5 text-white" />
+              <div className="p-3 rounded-xl neu-icon-box bg-gradient-to-br from-red-100 to-orange-100">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-orange-500">
+                  <AlertTriangle className="h-5 w-5 text-white" />
+                </div>
               </div>
               <div>
-                <CardTitle className="text-xl text-red-900">Mock Health Alert</CardTitle>
-                <CardDescription className="text-red-700">
+                <CardTitle className="text-xl !bg-gradient-to-r !from-red-700 !to-red-900 !bg-clip-text !text-transparent">Mock Health Alert</CardTitle>
+                <CardDescription className="text-red-700 font-medium">
                   {unhealthyMocks} mock{unhealthyMocks > 1 ? 's' : ''} reported unhealthy. Run health checks or restart.
                 </CardDescription>
               </div>
@@ -166,18 +174,22 @@ export default function DashboardPage() {
           </Card>
         )}
 
-        <Card className="animate-in" style={{ animationDelay: '400ms' }}>
+        <Card variant="neu" className="animate-in" style={{ animationDelay: '400ms' }}>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500">
-                <Clock className="h-5 w-5 text-white" />
+              <div className="p-2 rounded-xl neu-icon-box bg-gradient-to-br from-blue-100 to-indigo-100">
+                <div className="p-1 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500">
+                  <Clock className="h-5 w-5 text-white" />
+                </div>
               </div>
               <CardTitle className="text-xl">Recent Traces</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
             {recentTraces.length === 0 ? (
-              <p className="text-sm text-gray-500">No telemetry yet. Post to /api/trace to see live activity.</p>
+              <div className="rounded-2xl neu-pressed p-6 text-center">
+                <p className="text-sm text-gray-500">No telemetry yet. Post to /api/trace to see live activity.</p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {recentTraces.map((trace: any) => {
@@ -188,7 +200,7 @@ export default function DashboardPage() {
                     ? new Date(trace.createdAt).toLocaleString()
                     : trace.requestMeta?.timestamp ?? '—';
                   return (
-                    <div key={trace.id} className="flex items-start gap-4 rounded-xl bg-gradient-to-r from-gray-50 to-blue-50 p-4">
+                    <div key={trace.id} className="flex items-start gap-4 rounded-2xl neu-pressed p-4 transition-all hover:shadow-inner">
                       <Badge variant={verdict === 'PASS' ? 'success' : 'error'}>{verdict || 'UNKNOWN'}</Badge>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-900">{method} {path}</p>
@@ -202,17 +214,19 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="animate-in" style={{ animationDelay: '500ms' }}>
+        <Card variant="neu" className="animate-in" style={{ animationDelay: '500ms' }}>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
-                <Zap className="h-5 w-5 text-white" />
+              <div className="p-2 rounded-xl neu-icon-box bg-gradient-to-br from-purple-100 to-pink-100">
+                <div className="p-1 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
+                  <Zap className="h-5 w-5 text-white" />
+                </div>
               </div>
               <CardTitle className="text-xl">Quick Actions</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Manage Specs', gradient: 'from-blue-500 to-cyan-500', href: '/specs' },
                 { label: 'Manage Mocks', gradient: 'from-green-500 to-emerald-500', href: '/mocks' },
@@ -222,9 +236,10 @@ export default function DashboardPage() {
                 <Link
                   href={action.href}
                   key={action.label}
-                  className={`block w-full rounded-xl bg-gradient-to-r ${action.gradient} p-4 text-white shadow-lg transition hover:shadow-xl`}
+                  className={`group relative block w-full rounded-2xl bg-gradient-to-br ${action.gradient} p-4 text-white font-semibold text-center shadow-lg transition-all duration-300 hover:shadow-2xl hover:scale-105 active:scale-95`}
                 >
-                  {action.label}
+                  <span className="relative z-10">{action.label}</span>
+                  <div className="absolute inset-0 rounded-2xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </Link>
               ))}
             </div>
@@ -233,19 +248,25 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="animate-in" style={{ animationDelay: '600ms' }}>
+        <Card variant="neu" className="animate-in" style={{ animationDelay: '600ms' }}>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
-                <TestTube className="h-5 w-5 text-white" />
+              <div className="p-2 rounded-xl neu-icon-box bg-gradient-to-br from-purple-100 to-pink-100">
+                <div className="p-1 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
+                  <TestTube className="h-5 w-5 text-white" />
+                </div>
               </div>
-              <CardTitle className="text-xl">Recent Test Runs</CardTitle>
+              <div>
+                <CardTitle className="text-xl">Recent Test Runs</CardTitle>
+                <CardDescription>Latest golden suite executions</CardDescription>
+              </div>
             </div>
-            <CardDescription>Latest golden suite executions</CardDescription>
           </CardHeader>
           <CardContent>
             {recentTestRuns.length === 0 ? (
-              <p className="text-sm text-gray-500">No tests have been executed yet.</p>
+              <div className="rounded-2xl neu-pressed p-6 text-center">
+                <p className="text-sm text-gray-500">No tests have been executed yet.</p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {recentTestRuns.map((run) => {
@@ -258,7 +279,7 @@ export default function DashboardPage() {
                   return (
                     <div
                       key={run.suiteId}
-                      className="flex items-start gap-4 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 p-4"
+                      className="flex items-start gap-4 rounded-2xl neu-pressed p-4 transition-all hover:shadow-inner"
                     >
                       <Badge variant={success ? 'success' : 'warning'}>
                         {passed}/{total}

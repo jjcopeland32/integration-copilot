@@ -1,11 +1,23 @@
 import { cn } from '@/lib/utils';
 import { HTMLAttributes, forwardRef } from 'react';
 
-const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+type CardVariant = 'glass' | 'neu' | 'neu-pressed';
+
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  variant?: CardVariant;
+}
+
+const cardVariants: Record<CardVariant, string> = {
+  glass: 'glass rounded-2xl shadow-xl border border-white/20',
+  neu: 'neu-card rounded-2xl border-0',
+  'neu-pressed': 'neu-pressed rounded-2xl border-0',
+};
+
+const Card = forwardRef<HTMLDivElement, CardProps>(
+  ({ className, variant = 'glass', ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('glass rounded-2xl shadow-xl border border-white/20', className)}
+      className={cn(cardVariants[variant], className)}
       {...props}
     />
   )
