@@ -7,16 +7,18 @@ export const metadata: Metadata = {
 };
 
 /**
- * Root layout - minimal wrapper.
- * Actual portal layouts are in route groups:
- * - (auth) - login pages with minimal styling
- * - (portal) - authenticated client portal pages
- * - partner - partner portal with Crystal theme
+ * Root layout - defines the document shell.
+ * All pages inherit this html/body wrapper.
+ * Route-specific styling is handled by nested layouts.
  */
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <html lang="en">
+      <body className="font-sans antialiased">{children}</body>
+    </html>
+  );
 }
