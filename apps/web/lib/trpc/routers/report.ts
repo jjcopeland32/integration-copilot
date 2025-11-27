@@ -1,4 +1,5 @@
-import { router, publicProcedure } from '../server';
+import { router, protectedProcedure } from '../server';
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import {
   PLAN_PHASES,
@@ -32,14 +33,18 @@ function deriveStatus(meta: ReadinessReport | null, signedAt?: Date | null) {
 }
 
 export const reportRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(z.object({ projectId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const project = await ctx.prisma.project.findUnique({
-        where: { id: input.projectId },
+      // Verify project belongs to user's org
+      const project = await ctx.prisma.project.findFirst({
+        where: { id: input.projectId, orgId: ctx.orgId },
       });
       if (!project) {
-        throw new Error('Project not found');
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Project not found or access denied',
+        });
       }
 
       const generator = createReportGenerator(ctx.prisma);
@@ -107,17 +112,22 @@ export const reportRouter = router({
       });
     }),
 
-  get: publicProcedure
+  get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const generator = createReportGenerator(ctx.prisma);
-      const report = await ctx.prisma.report.findUnique({
+      
+      // Verify report belongs to user's org via its project
+      const report = await ctx.prisma.report.findFirst({
         where: { id: input.id },
         include: { project: true },
       });
 
-      if (!report) {
-        throw new Error('Report not found');
+      if (!report || report.project.orgId !== ctx.orgId) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Report not found or access denied',
+        });
       }
 
       let meta = parseMeta(report.meta);

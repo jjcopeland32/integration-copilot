@@ -1,12 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Server, Play, Square, Download, Activity, Trash2, Gauge, Loader2 } from 'lucide-react';
-import { useProjectContext } from '@/components/project-context';
 import { trpc } from '@/lib/trpc/client';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@/lib/trpc/root';
@@ -14,37 +13,39 @@ import type { AppRouter } from '@/lib/trpc/root';
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type MockSummary = RouterOutputs['mock']['list'][number];
 
-export default function MocksPage() {
-  const { projectId, projectName } = useProjectContext();
+export default function ProjectMocksPage() {
+  const params = useParams();
+  const projectId = params.id as string;
   const utils = trpc.useUtils();
+  
   const mocksQuery = trpc.mock.list.useQuery(
-    projectId ? { projectId } : { projectId: undefined },
+    { projectId },
     { enabled: !!projectId }
   );
 
   const startMutation = trpc.mock.start.useMutation({
     onSuccess: async () => {
-      await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
+      await utils.mock.list.invalidate({ projectId });
     },
   });
   const stopMutation = trpc.mock.stop.useMutation({
     onSuccess: async () => {
-      await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
+      await utils.mock.list.invalidate({ projectId });
     },
   });
   const healthMutation = trpc.mock.checkHealth.useMutation({
     onSuccess: async () => {
-      await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
+      await utils.mock.list.invalidate({ projectId });
     },
   });
   const deleteMutation = trpc.mock.delete.useMutation({
     onSuccess: async () => {
-      await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
+      await utils.mock.list.invalidate({ projectId });
     },
   });
   const checkAllMutation = trpc.mock.checkAll.useMutation({
     onSuccess: async () => {
-      await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
+      await utils.mock.list.invalidate({ projectId });
     },
   });
 
@@ -78,27 +79,9 @@ export default function MocksPage() {
     );
   };
 
-  if (!projectId) {
-    return (
-      <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
-        <h2 className="text-2xl font-semibold text-gray-900">Select a project to manage mock services</h2>
-        <p className="mt-2 text-sm text-gray-600">
-          Mock services belong to a single integration. Choose a project first, then manage its mocks here.
-        </p>
-        <Link
-          href="/projects"
-          className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg"
-        >
-          View Projects
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
       <div className="animate-in">
-        <p className="text-xs uppercase tracking-[0.3em] text-gray-500">{projectName}</p>
         <h1 className="text-4xl font-bold gradient-text">Mock Services</h1>
         <p className="text-lg text-gray-600 mt-2">Manage your API mock servers</p>
         <div className="mt-4 flex gap-4 text-sm text-gray-600">
@@ -109,8 +92,9 @@ export default function MocksPage() {
             variant="outline"
             className="ml-auto"
             onClick={async () => {
+              if (!projectId) return;
               setCheckingAll(true);
-              await checkAllMutation.mutateAsync({ projectId: projectId ?? undefined }).catch(() => {});
+              await checkAllMutation.mutateAsync({ projectId }).catch(() => {});
               setCheckingAll(false);
             }}
             disabled={checkingAll || checkAllMutation.isPending}
@@ -126,7 +110,7 @@ export default function MocksPage() {
         </div>
       ) : mocks.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
-          <p className="text-gray-600">No mock services yet. Generate one from the Specs page.</p>
+          <p className="text-gray-600">No mock services yet. Generate one from the Specs tab.</p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -270,3 +254,4 @@ export default function MocksPage() {
     </div>
   );
 }
+

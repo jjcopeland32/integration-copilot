@@ -14,30 +14,33 @@ export const metadata: Metadata = {
 
 const fontClass = 'font-sans antialiased';
 
-function mapSession(): Promise<PartnerSessionData | null> {
-  return resolvePartnerSessionFromCookies().then((session) => {
-    if (!session) return null;
-    return {
-      id: session.id,
-      expiresAt: session.expiresAt.toISOString(),
-      partnerProjectId: session.partnerProjectId,
-      projectId: session.partnerProject.projectId,
-      partnerUser: {
-        id: session.partnerUser.id,
-        email: session.partnerUser.email,
-        name: session.partnerUser.name,
-      },
-      partnerProject: {
-        id: session.partnerProject.id,
-        partnerName: session.partnerProject.partnerName,
-        status: session.partnerProject.status,
-        requirements: session.partnerProject.requirements ?? undefined,
-        projectName: session.partnerProject.project.name,
-      },
-    };
-  });
+async function mapSession(): Promise<PartnerSessionData | null> {
+  const session = await resolvePartnerSessionFromCookies();
+  if (!session) return null;
+  return {
+    id: session.id,
+    expiresAt: session.expiresAt.toISOString(),
+    partnerProjectId: session.partnerProjectId,
+    projectId: session.partnerProject.projectId,
+    partnerUser: {
+      id: session.partnerUser.id,
+      email: session.partnerUser.email,
+      name: session.partnerUser.name,
+    },
+    partnerProject: {
+      id: session.partnerProject.id,
+      partnerName: session.partnerProject.partnerName,
+      status: session.partnerProject.status,
+      requirements: session.partnerProject.requirements ?? undefined,
+      projectName: session.partnerProject.project.name,
+    },
+  };
 }
 
+/**
+ * Root partner layout - provides TRPC and session context.
+ * Actual session validation and redirects happen in (portal)/layout.tsx.
+ */
 export default async function PartnerLayout({
   children,
 }: {

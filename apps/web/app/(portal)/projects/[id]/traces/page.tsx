@@ -1,17 +1,18 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo } from 'react';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
-import { useProjectContext } from '@/components/project-context';
 
-export default function TracesPage() {
-  const { projectId, projectName } = useProjectContext();
+export default function ProjectTracesPage() {
+  const params = useParams();
+  const projectId = params.id as string;
+  
   const projectQuery = trpc.project.get.useQuery(
-    projectId ? { id: projectId } : { id: '' },
+    { id: projectId },
     { enabled: !!projectId }
   );
   const traces = useMemo(() => projectQuery.data?.traces ?? [], [projectQuery.data?.traces]);
@@ -27,27 +28,9 @@ export default function TracesPage() {
     return Math.round(sum / totalTraces);
   }, [traces, totalTraces]);
 
-  if (!projectId) {
-    return (
-      <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
-        <h2 className="text-2xl font-semibold text-gray-900">Select a project to view traces</h2>
-        <p className="mt-2 text-sm text-gray-600">
-          Telemetry traces belong to a single integration. Choose a project to see its latest requests.
-        </p>
-        <Link
-          href="/projects"
-          className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg"
-        >
-          View Projects
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
       <div>
-        <p className="text-xs uppercase tracking-[0.3em] text-gray-500">{projectName}</p>
         <h1 className="text-3xl font-bold">Traces</h1>
         <p className="text-gray-500 mt-2">Request/response validation traces</p>
       </div>
@@ -128,3 +111,4 @@ export default function TracesPage() {
     </div>
   );
 }
+

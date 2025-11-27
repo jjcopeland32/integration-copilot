@@ -22,9 +22,9 @@ const riskVariant = (risk: string | undefined) => {
   }
 };
 
-export default async function ReportDetailPage({ params }: { params: { id: string } }) {
+export default async function ReportDetailPage({ params }: { params: { id: string; reportId: string } }) {
   const caller = appRouter.createCaller(await createContext());
-  const report = await caller.report.get({ id: params.id }).catch(() => null);
+  const report = await caller.report.get({ id: params.reportId }).catch(() => null);
 
   if (!report) {
     notFound();
@@ -49,10 +49,10 @@ export default async function ReportDetailPage({ params }: { params: { id: strin
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-4">
-        <Link href="/reports">
+        <Link href={`/projects/${params.id}/reports`}>
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            Back to Reports
           </Button>
         </Link>
       </div>
@@ -264,3 +264,4 @@ export default async function ReportDetailPage({ params }: { params: { id: strin
     </div>
   );
 }
+

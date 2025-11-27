@@ -1,10 +1,10 @@
-import { router, publicProcedure } from '../server';
+import { router, protectedProcedure } from '../server';
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import yaml from 'js-yaml';
 import { SpecNormalizer, type NormalizedSpec } from '@integration-copilot/spec-engine';
 import { MockGenerator, GoldenTestGenerator } from '@integration-copilot/mockgen';
 import { sampleSpecs } from '../../sample-specs';
-import { ensureProjectForSpec, resolveProject } from '../../workspace';
 import { MockStatus, SpecKind, Prisma } from '@prisma/client';
 import { ensureMockServer } from '../../mock-server-manager';
 import type { PrismaClient } from '@prisma/client';
@@ -76,46 +76,85 @@ function extractSpecName(payload: any, fallback = 'Imported Spec') {
   return fallback;
 }
 
+/**
+ * Helper to verify project belongs to the user's org
+ */
+async function verifyProjectAccess(
+  prisma: PrismaClient,
+  projectId: string,
+  orgId: string
+) {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, orgId },
+  });
+  if (!project) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'Project not found or access denied',
+    });
+  }
+  return project;
+}
+
+/**
+ * Helper to verify spec belongs to user's org via its project
+ */
+async function verifySpecAccess(
+  prisma: PrismaClient,
+  specId: string,
+  orgId: string
+) {
+  const spec = await prisma.spec.findFirst({
+    where: { id: specId },
+    include: { project: true },
+  });
+  if (!spec || spec.project.orgId !== orgId) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'Spec not found or access denied',
+    });
+  }
+  return spec;
+}
+
 export const specRouter = router({
-  list: publicProcedure
-    .input(z.object({ projectId: z.string().optional() }).optional())
+  list: protectedProcedure
+    .input(z.object({ projectId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const project = await resolveProject(ctx.prisma, {
-        projectId: input?.projectId,
-        userId: ctx.userId,
-        orgId: ctx.orgId,
-      });
+      // Verify project belongs to user's org
+      await verifyProjectAccess(ctx.prisma, input.projectId, ctx.orgId);
 
       return ctx.prisma.spec.findMany({
-        where: { projectId: project.id },
+        where: { projectId: input.projectId },
         orderBy: { createdAt: 'desc' },
       });
     }),
 
-  get: publicProcedure
+  get: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .query(({ ctx, input }) => {
-      return ctx.prisma.spec.findUnique({
-        where: { id: input.id },
-      });
+    .query(async ({ ctx, input }) => {
+      // Verify spec belongs to user's org
+      const spec = await verifySpecAccess(ctx.prisma, input.id, ctx.orgId);
+      return spec;
     }),
 
-  importFromUrl: publicProcedure
+  importFromUrl: protectedProcedure
     .input(
       z.object({
-        projectId: z.string().optional(),
+        projectId: z.string(),
         url: z.string().url(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const project = await ensureProjectForSpec(ctx.prisma, input.projectId, {
-        userId: ctx.userId,
-        orgId: ctx.orgId,
-      });
+      // Verify project belongs to user's org
+      const project = await verifyProjectAccess(ctx.prisma, input.projectId, ctx.orgId);
 
       const response = await fetch(input.url);
       if (!response.ok) {
-        throw new Error(`Failed to fetch spec from ${input.url}`);
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Failed to fetch spec from ${input.url}`,
+        });
       }
       const rawText = await response.text();
       const parsed = await parseSpecPayload(rawText);
@@ -135,18 +174,16 @@ export const specRouter = router({
       });
     }),
 
-  importFromObject: publicProcedure
+  importFromObject: protectedProcedure
     .input(
       z.object({
-        projectId: z.string().optional(),
+        projectId: z.string(),
         spec: z.any(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const project = await ensureProjectForSpec(ctx.prisma, input.projectId, {
-        userId: ctx.userId,
-        orgId: ctx.orgId,
-      });
+      // Verify project belongs to user's org
+      const project = await verifyProjectAccess(ctx.prisma, input.projectId, ctx.orgId);
 
       const parsed = await parseSpecPayload(input.spec);
       const normalized = await normalizeSpec(parsed);
@@ -164,17 +201,15 @@ export const specRouter = router({
       });
     }),
 
-  generateBlueprint: publicProcedure
+  generateBlueprint: protectedProcedure
     .input(
       z.object({
         specId: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const spec = await ctx.prisma.spec.findUnique({
-        where: { id: input.specId },
-      });
-      if (!spec) throw new Error('Spec not found');
+      // Verify spec belongs to user's org
+      const spec = await verifySpecAccess(ctx.prisma, input.specId, ctx.orgId);
 
       const normalized = await ensureNormalizedSpec(ctx.prisma, input.specId);
       const markdown = buildBlueprintMarkdown(normalized);
@@ -224,9 +259,12 @@ export const specRouter = router({
       };
     }),
 
-  getBlueprint: publicProcedure
+  getBlueprint: protectedProcedure
     .input(z.object({ specId: z.string() }))
     .query(async ({ ctx, input }) => {
+      // Verify spec belongs to user's org
+      await verifySpecAccess(ctx.prisma, input.specId, ctx.orgId);
+
       const blueprint = await ctx.prisma.blueprint.findFirst({
         where: { specId: input.specId },
         orderBy: { createdAt: 'desc' },
@@ -248,13 +286,11 @@ export const specRouter = router({
       };
     }),
 
-  generateMock: publicProcedure
+  generateMock: protectedProcedure
     .input(z.object({ specId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const specRecord = await ctx.prisma.spec.findUnique({
-        where: { id: input.specId },
-      });
-      if (!specRecord) throw new Error('Spec not found');
+      // Verify spec belongs to user's org
+      const specRecord = await verifySpecAccess(ctx.prisma, input.specId, ctx.orgId);
 
       const normalized = await ensureNormalizedSpec(ctx.prisma, input.specId);
       const existingInstances = await ctx.prisma.mockInstance.findMany({
@@ -382,13 +418,11 @@ export const specRouter = router({
       };
     }),
 
-  generateTests: publicProcedure
+  generateTests: protectedProcedure
     .input(z.object({ specId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const spec = await ctx.prisma.spec.findUnique({
-        where: { id: input.specId },
-      });
-      if (!spec) throw new Error('Spec not found');
+      // Verify spec belongs to user's org
+      const spec = await verifySpecAccess(ctx.prisma, input.specId, ctx.orgId);
 
       const normalized = await ensureNormalizedSpec(ctx.prisma, input.specId);
       const runningMock = await ctx.prisma.mockInstance.findFirst({
@@ -415,13 +449,11 @@ export const specRouter = router({
       };
     }),
 
-  loadSamples: publicProcedure
-    .input(z.object({ projectId: z.string().optional() }))
+  loadSamples: protectedProcedure
+    .input(z.object({ projectId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const project = await ensureProjectForSpec(ctx.prisma, input.projectId, {
-        userId: ctx.userId,
-        orgId: ctx.orgId,
-      });
+      // Verify project belongs to user's org
+      const project = await verifyProjectAccess(ctx.prisma, input.projectId, ctx.orgId);
 
       const specs = [];
       for (const specDoc of [sampleSpecs.stripe, sampleSpecs.todo]) {

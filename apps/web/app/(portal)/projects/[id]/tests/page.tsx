@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TestTube, Play, CheckCircle, XCircle, Loader2, Download, Link as LinkIcon, FileText, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
-import { useProjectContext } from '@/components/project-context';
 
 type AssertionResult = {
   passed: boolean;
@@ -171,11 +171,13 @@ function CaseRow({ result }: { result: CaseResult }) {
   );
 }
 
-export default function TestsPage() {
-  const { projectId, projectName } = useProjectContext();
+export default function ProjectTestsPage() {
+  const params = useParams();
+  const projectId = params.id as string;
   const utils = trpc.useUtils();
+  
   const suitesQuery = trpc.project.get.useQuery(
-    projectId ? { id: projectId } : { id: '' },
+    { id: projectId },
     { enabled: !!projectId }
   );
   const suitesData = suitesQuery.data?.suites;
@@ -192,21 +194,6 @@ export default function TestsPage() {
 
   const [runningSuite, setRunningSuite] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  if (!projectId) {
-    return (
-      <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
-        <h2 className="text-2xl font-semibold text-gray-900">Select a project to run tests</h2>
-        <p className="mt-2 text-sm text-gray-600">Golden tests are scoped to a single integration.</p>
-        <Link
-          href="/projects"
-          className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg"
-        >
-          View Projects
-        </Link>
-      </div>
-    );
-  }
 
   const handleRunSuite = async (suiteId: string) => {
     setRunningSuite(suiteId);
@@ -257,7 +244,6 @@ export default function TestsPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between animate-in">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">{projectName}</p>
           <h1 className="text-4xl font-bold gradient-text">Golden Test Suites</h1>
           <p className="text-lg text-gray-600 mt-2">
             {totalSuites} suites • {totalCases} cases
@@ -282,7 +268,7 @@ export default function TestsPage() {
       )}
       {suites.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
-          <p className="text-gray-600">No suites yet. Generate tests from the Specs page for this project.</p>
+          <p className="text-gray-600">No suites yet. Generate tests from the Specs tab for this project.</p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -424,7 +410,7 @@ export default function TestsPage() {
                           Case Results
                         </p>
                         <Link
-                          href="/traces"
+                          href={`/projects/${projectId}/traces`}
                           className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700"
                         >
                           <FileText className="h-3 w-3" />
@@ -447,3 +433,4 @@ export default function TestsPage() {
     </div>
   );
 }
+

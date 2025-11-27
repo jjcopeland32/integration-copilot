@@ -3,22 +3,14 @@ import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import {
   PARTNER_SESSION_COOKIE_NAME,
-  getPartnerSessionTokenFromHeaders,
 } from '@/lib/partner/session';
 
 /**
  * Protected route patterns for the client portal.
- * These require NextAuth session.
+ * All project-scoped pages are now nested under /projects/[id]/
  */
 const CLIENT_PROTECTED_PATTERNS = [
-  '/dashboard',
   '/projects',
-  '/specs',
-  '/mocks',
-  '/tests',
-  '/traces',
-  '/plan',
-  '/reports',
 ];
 
 /**
@@ -118,5 +110,3 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
-
-

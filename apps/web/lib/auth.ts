@@ -118,6 +118,29 @@ async function authorizeDemo(email: string, password: string): Promise<AuthUser 
   if (normalizedEmail !== normalizeEmail(demoDefaults.email)) return null;
   if (password !== demoDefaults.password) return null;
 
+  // Check if a user with demo email already exists (may have been created by authorizeUser)
+  const existingUser = await prisma.user.findUnique({
+    where: { email: normalizeEmail(demoDefaults.email) },
+    include: { memberships: true },
+  });
+
+  if (existingUser) {
+    // Use existing user, just ensure they have a membership
+    let membership = existingUser.memberships?.[0];
+    if (!membership) {
+      // Create membership for the existing user
+      membership = await ensureUserMembership(existingUser.id, demoDefaults.orgId);
+    }
+    return {
+      id: existingUser.id,
+      email: existingUser.email,
+      name: existingUser.name,
+      orgId: membership.orgId,
+      role: membership.role as Role,
+    };
+  }
+
+  // No existing user - create the demo workspace
   const workspace = await ensureDemoWorkspace(prisma, {
     userId: undefined,
     orgId: demoDefaults.orgId,
