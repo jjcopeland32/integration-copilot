@@ -2,12 +2,6 @@
 
 import { partnerTrpc } from '@/lib/trpc/partner/client';
 import type { ReactNode } from 'react';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Activity,
@@ -16,6 +10,8 @@ import {
   LineChart,
   Loader2,
   Target,
+  Sparkles,
+  TrendingUp,
 } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
 
@@ -35,8 +31,13 @@ export function PartnerDashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">
-        <Loader2 className="h-5 w-5 animate-spin" />
+      <div className="glass-crystal-card flex items-center gap-3 rounded-3xl p-6 text-sm text-slate-300 animate-in">
+        <div className="relative">
+          <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
+          <div className="absolute inset-0 animate-ping opacity-30">
+            <Loader2 className="h-5 w-5 text-cyan-400" />
+          </div>
+        </div>
         Loading partner workspace...
       </div>
     );
@@ -44,7 +45,8 @@ export function PartnerDashboard() {
 
   if (!data) {
     return (
-      <div className="rounded-3xl border border-dashed border-white/20 bg-white/5 p-10 text-center text-slate-300">
+      <div className="glass-crystal-card rounded-3xl border border-dashed border-cyan-500/30 p-10 text-center text-slate-300 animate-in">
+        <Sparkles className="mx-auto h-8 w-8 text-cyan-400/50 mb-3" />
         Unable to load partner project. Refresh or request a new invite.
       </div>
     );
@@ -81,129 +83,185 @@ export function PartnerDashboard() {
     })
     .slice(0, 3);
 
+  const progressPercent = planItems.length > 0 
+    ? Math.round((completedPlan / planItems.length) * 100)
+    : 0;
+
   return (
     <div className="space-y-8">
+      {/* Metric Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           icon={<FileText className="h-5 w-5" />}
           label="Specs"
           value={`${specs.length}`}
           helper="Blueprints shared by SYF"
+          gradient="from-cyan-500 to-blue-600"
+          delay={0}
         />
         <MetricCard
           icon={<FlaskConical className="h-5 w-5" />}
           label="Golden Tests"
           value={`${suites.length}`}
           helper="Suites ready to execute"
+          gradient="from-purple-500 to-pink-600"
+          delay={1}
         />
         <MetricCard
           icon={<Activity className="h-5 w-5" />}
           label="Running Mocks"
           value={`${runningMocks}`}
           helper="Sandbox endpoints live"
+          gradient="from-emerald-500 to-teal-600"
+          delay={2}
         />
         <MetricCard
           icon={<LineChart className="h-5 w-5" />}
           label="Traces (24h)"
           value={`${traces.length}`}
           helper="Latest telemetry captured"
+          gradient="from-amber-500 to-orange-600"
+          delay={3}
         />
       </div>
 
+      {/* Two Column Section */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-white/10 bg-white/5 text-slate-50 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Target className="h-5 w-5 text-blue-300" />
-              Plan Readiness
-            </CardTitle>
-            <p className="text-sm text-slate-300">
-              {completedPlan} / {planItems.length} milestones complete
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        {/* Plan Readiness */}
+        <div className="glass-crystal-card rounded-3xl p-6 animate-in stagger-4">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 p-2.5">
+                <Target className="h-5 w-5 text-cyan-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Plan Readiness</h3>
+                <p className="text-sm text-slate-400">
+                  {completedPlan} / {planItems.length} milestones complete
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-2xl font-bold text-cyan-400">{progressPercent}%</span>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mb-6 h-2 rounded-full bg-slate-800/50 overflow-hidden">
+            <div 
+              className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 transition-all duration-1000 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+
+          <div className="space-y-3">
             {nextPlanItems.length === 0 ? (
-              <p className="rounded-2xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                Pending evidence? Upload proof on the Plan page to close the loop.
-              </p>
+              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-200">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-400" />
+                  <span>All milestones complete! Upload evidence on the Plan page.</span>
+                </div>
+              </div>
             ) : (
               nextPlanItems.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm"
+                  className="group rounded-2xl border border-white/5 bg-white/5 p-4 text-sm transition-all duration-300 hover:bg-white/10 hover:border-cyan-500/20"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-white">{item.title}</p>
-                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                      <p className="font-semibold text-white group-hover:text-cyan-100 transition-colors">{item.title}</p>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mt-1">
                         {item.phase}
                       </p>
                     </div>
                     <Badge
-                      variant={
+                      className={
                         item.status === 'DONE'
-                          ? 'success'
+                          ? 'badge-success-crystal'
                           : item.status === 'IN_PROGRESS'
-                            ? 'info'
-                            : 'outline'
+                            ? 'badge-crystal'
+                            : 'badge-warning-crystal'
                       }
                     >
                       {item.status.replace('_', ' ')}
                     </Badge>
                   </div>
                   {item.dueAt && (
-                    <p className="mt-2 text-xs text-slate-400">
-                      Due {formatDateTime(item.dueAt)}
+                    <p className="mt-3 text-xs text-slate-500">
+                      Due <span className="text-cyan-400/70">{formatDateTime(item.dueAt)}</span>
                     </p>
                   )}
                 </div>
               ))
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="border-white/10 bg-white/5 text-slate-50 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <FlaskConical className="h-5 w-5 text-purple-300" />
-              Latest Partner Runs
-            </CardTitle>
-            <p className="text-sm text-slate-300">
-              Review your most recent golden test executions.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {recentRuns.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-white/20 bg-white/5 px-4 py-6 text-center text-sm text-slate-300">
-                No partner-triggered runs yet. Generate mocks and request a run from the SYF team.
+        {/* Latest Partner Runs */}
+        <div className="glass-crystal-card rounded-3xl p-6 animate-in stagger-5">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-600/20 p-2.5">
+              <FlaskConical className="h-5 w-5 text-purple-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">Latest Partner Runs</h3>
+              <p className="text-sm text-slate-400">
+                Review your most recent golden test executions.
               </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {recentRuns.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-8 text-center text-sm text-slate-400">
+                <FlaskConical className="mx-auto h-8 w-8 text-purple-400/40 mb-3" />
+                <p>No partner-triggered runs yet.</p>
+                <p className="text-xs text-slate-500 mt-1">Generate mocks and request a run from the SYF team.</p>
+              </div>
             ) : (
-              recentRuns.map((run) => (
-                <div
-                  key={run.id}
-                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm"
-                >
-                  <div>
-                    <p className="font-semibold text-white">{run.suiteName}</p>
-                    <p className="text-xs text-slate-400">
-                      {formatDateTime(run.createdAt)}
-                    </p>
-                  </div>
-                  <div className="text-right text-xs text-slate-300">
-                    <p>
-                      Passed {run.summary?.passed ?? 0}/{run.summary?.total ?? 0}
-                    </p>
-                    {typeof run.summary?.durationMs === 'number' && (
-                      <p className="text-slate-500">
-                        {(run.summary.durationMs / 1000).toFixed(1)}s
+              recentRuns.map((run) => {
+                const passRate = run.summary?.total 
+                  ? Math.round(((run.summary.passed ?? 0) / run.summary.total) * 100)
+                  : 0;
+                const isPassing = passRate >= 80;
+
+                return (
+                  <div
+                    key={run.id}
+                    className="group flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 px-4 py-4 text-sm transition-all duration-300 hover:bg-white/10 hover:border-purple-500/20"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
+                        isPassing 
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        <TrendingUp className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-white group-hover:text-purple-100 transition-colors">{run.suiteName}</p>
+                        <p className="text-xs text-slate-500">
+                          {formatDateTime(run.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-semibold ${isPassing ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {run.summary?.passed ?? 0}/{run.summary?.total ?? 0}
                       </p>
-                    )}
+                      {typeof run.summary?.durationMs === 'number' && (
+                        <p className="text-xs text-slate-500">
+                          {(run.summary.durationMs / 1000).toFixed(1)}s
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -214,24 +272,39 @@ function MetricCard({
   label,
   value,
   helper,
+  gradient,
+  delay,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
   helper: string;
+  gradient: string;
+  delay: number;
 }) {
   return (
-    <Card className="border-white/10 bg-white/5 text-slate-50 backdrop-blur">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-base">
-          <span className="rounded-2xl bg-white/10 p-2 text-blue-200">{icon}</span>
-          {label}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-4xl font-semibold text-white">{value}</p>
-        <p className="mt-2 text-sm text-slate-300">{helper}</p>
-      </CardContent>
-    </Card>
+    <div 
+      className="glass-crystal-card group rounded-3xl p-6 animate-in relative overflow-hidden"
+      style={{ animationDelay: `${delay * 100}ms` }}
+    >
+      {/* Gradient overlay on hover */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-500`} />
+      
+      {/* Inner glow effect */}
+      <div className="absolute inset-0 crystal-inner-glow opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      
+      <div className="relative">
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`rounded-xl bg-gradient-to-br ${gradient} p-2.5 shadow-lg`}>
+            <span className="text-white">{icon}</span>
+          </div>
+          <span className="text-sm font-medium text-slate-400">{label}</span>
+        </div>
+        <p className="text-4xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+          {value}
+        </p>
+        <p className="mt-2 text-sm text-slate-500">{helper}</p>
+      </div>
+    </div>
   );
 }

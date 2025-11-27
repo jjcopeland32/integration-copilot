@@ -1,11 +1,23 @@
 import { cn } from '@/lib/utils';
 import { HTMLAttributes, forwardRef } from 'react';
 
-const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+export interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  variant?: 'default' | 'enterprise' | 'crystal';
+}
+
+const Card = forwardRef<HTMLDivElement, CardProps>(
+  ({ className, variant = 'default', ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('glass rounded-2xl shadow-xl border border-white/20', className)}
+      className={cn(
+        'rounded-2xl shadow-xl',
+        {
+          'glass border border-white/20': variant === 'default',
+          'glass-enterprise-card': variant === 'enterprise',
+          'glass-crystal-card': variant === 'crystal',
+        },
+        className
+      )}
       {...props}
     />
   )

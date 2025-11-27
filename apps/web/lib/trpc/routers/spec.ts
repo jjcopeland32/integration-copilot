@@ -171,12 +171,80 @@ export const specRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const spec = await ctx.prisma.spec.findUnique({
+        where: { id: input.specId },
+      });
+      if (!spec) throw new Error('Spec not found');
+
       const normalized = await ensureNormalizedSpec(ctx.prisma, input.specId);
+      const markdown = buildBlueprintMarkdown(normalized);
+
+      // Check if a blueprint already exists for this spec
+      const existingBlueprint = await ctx.prisma.blueprint.findFirst({
+        where: { specId: input.specId },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      let blueprint;
+      if (existingBlueprint) {
+        // Update existing blueprint
+        blueprint = await ctx.prisma.blueprint.update({
+          where: { id: existingBlueprint.id },
+          data: {
+            version: normalized.version ?? '1.0.0',
+            customerScope: {
+              markdown,
+              endpoints: normalized.endpoints.length,
+              generatedAt: new Date().toISOString(),
+            } as unknown as Prisma.InputJsonValue,
+          },
+        });
+      } else {
+        // Create new blueprint
+        blueprint = await ctx.prisma.blueprint.create({
+          data: {
+            projectId: spec.projectId,
+            specId: input.specId,
+            version: normalized.version ?? '1.0.0',
+            customerScope: {
+              markdown,
+              endpoints: normalized.endpoints.length,
+              generatedAt: new Date().toISOString(),
+            } as unknown as Prisma.InputJsonValue,
+          },
+        });
+      }
+
       return {
         success: true,
+        blueprintId: blueprint.id,
         endpoints: normalized.endpoints.length,
-        markdown: buildBlueprintMarkdown(normalized),
+        markdown,
         spec: normalized,
+      };
+    }),
+
+  getBlueprint: publicProcedure
+    .input(z.object({ specId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const blueprint = await ctx.prisma.blueprint.findFirst({
+        where: { specId: input.specId },
+        orderBy: { createdAt: 'desc' },
+      });
+      
+      if (!blueprint) {
+        return null;
+      }
+
+      const customerScope = blueprint.customerScope as { markdown?: string; endpoints?: number } | null;
+      return {
+        id: blueprint.id,
+        specId: blueprint.specId,
+        version: blueprint.version,
+        markdown: customerScope?.markdown ?? null,
+        endpoints: customerScope?.endpoints ?? 0,
+        createdAt: blueprint.createdAt,
+        updatedAt: blueprint.updatedAt,
       };
     }),
 
@@ -302,7 +370,13 @@ export const specRouter = router({
       return {
         success: true,
         mock: {
-          ...describeMock(mock as any),
+          id: mock.id,
+          status: mock.status,
+          baseUrl: mock.baseUrl,
+          port: mock.port,
+          projectId: mock.projectId,
+          createdAt: mock.createdAt,
+          updatedAt: mock.updatedAt,
         },
         routes,
       };

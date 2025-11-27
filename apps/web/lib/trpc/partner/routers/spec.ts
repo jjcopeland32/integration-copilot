@@ -78,4 +78,40 @@ export const partnerSpecRouter = createPartnerRouter({
         },
       };
     }),
+
+  getBlueprint: partnerProtectedProcedure
+    .input(z.object({ specId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Verify the spec belongs to the partner's project
+      const spec = await ctx.prisma.spec.findFirst({
+        where: {
+          id: input.specId,
+          projectId: ctx.session!.partnerProject.projectId,
+        },
+      });
+
+      if (!spec) {
+        return null;
+      }
+
+      const blueprint = await ctx.prisma.blueprint.findFirst({
+        where: { specId: input.specId },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!blueprint) {
+        return null;
+      }
+
+      const customerScope = blueprint.customerScope as { markdown?: string; endpoints?: number } | null;
+      return {
+        id: blueprint.id,
+        specId: blueprint.specId,
+        version: blueprint.version,
+        markdown: customerScope?.markdown ?? null,
+        endpoints: customerScope?.endpoints ?? 0,
+        createdAt: blueprint.createdAt,
+        updatedAt: blueprint.updatedAt,
+      };
+    }),
 });

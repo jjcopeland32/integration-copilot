@@ -5,9 +5,22 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TestTube, Play, CheckCircle, XCircle, Loader2, Download, Link as LinkIcon, FileText } from 'lucide-react';
+import { TestTube, Play, CheckCircle, XCircle, Loader2, Download, Link as LinkIcon, FileText, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { useProjectContext } from '@/components/project-context';
+
+type AssertionResult = {
+  passed: boolean;
+  assertion: {
+    type: string;
+    field?: string;
+    value?: unknown;
+    condition?: string;
+  };
+  error?: string;
+  expected?: unknown;
+  actual?: unknown;
+};
 
 type SuiteRunResult = {
   summary?: {
@@ -21,10 +34,12 @@ type SuiteRunResult = {
     name: string;
     status: 'passed' | 'failed' | 'skipped';
     message?: string;
+    errors?: string[];
     response?: {
       status?: number;
       body?: unknown;
     };
+    assertionResults?: AssertionResult[];
   }>;
   startedAt?: string;
   finishedAt?: string;
@@ -34,35 +49,123 @@ type SuiteRunResult = {
 
 type CaseResult = NonNullable<SuiteRunResult['cases']>[number];
 
+function AssertionDetail({ assertion }: { assertion: AssertionResult }) {
+  return (
+    <div className={`rounded-lg p-2 text-xs ${assertion.passed ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+      <div className="flex items-center gap-2">
+        {assertion.passed ? (
+          <CheckCircle className="h-3 w-3 text-green-500" />
+        ) : (
+          <XCircle className="h-3 w-3 text-red-500" />
+        )}
+        <span className="font-medium">{assertion.assertion.type}</span>
+        {assertion.assertion.field && (
+          <span className="text-gray-500">({assertion.assertion.field})</span>
+        )}
+      </div>
+      {!assertion.passed && assertion.error && (
+        <p className="mt-1 pl-5">{assertion.error}</p>
+      )}
+      {!assertion.passed && (assertion.expected !== undefined || assertion.actual !== undefined) && (
+        <div className="mt-1 pl-5 space-y-0.5">
+          {assertion.expected !== undefined && (
+            <p className="text-green-600">Expected: {JSON.stringify(assertion.expected)}</p>
+          )}
+          {assertion.actual !== undefined && (
+            <p className="text-red-600">Actual: {JSON.stringify(assertion.actual)}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CaseRow({ result }: { result: CaseResult }) {
+  const [expanded, setExpanded] = useState(false);
   const variant = result.status === 'passed' ? 'success' : result.status === 'failed' ? 'error' : 'default';
   const responseBody =
     result.response && typeof result.response.body === 'object'
       ? JSON.stringify(result.response.body, null, 2)
       : result.response?.body;
-  const traceHint = result.response && typeof result.response.body === 'object' ? result.response.body?.traceId : null;
+  const traceHint = result.response && typeof result.response.body === 'object' ? (result.response.body as any)?.traceId : null;
+  
+  const failedAssertions = result.assertionResults?.filter((a) => !a.passed) ?? [];
+  const allErrors = [...(result.errors ?? []), ...(result.message ? [result.message] : [])];
+  const hasDetails = failedAssertions.length > 0 || allErrors.length > 0 || result.response;
+  
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-inner space-y-2">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-gray-900">{result.name}</p>
-          {result.message && <p className="text-xs text-gray-500">{result.message}</p>}
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-gray-900">{result.name}</p>
+            {hasDetails && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+            )}
+          </div>
+          {result.status === 'failed' && failedAssertions.length > 0 && !expanded && (
+            <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+              <AlertTriangle className="h-3 w-3" />
+              {failedAssertions.length} assertion{failedAssertions.length > 1 ? 's' : ''} failed
+            </p>
+          )}
+          {result.status === 'failed' && allErrors.length > 0 && failedAssertions.length === 0 && !expanded && (
+            <p className="text-xs text-red-500 mt-1">{allErrors[0]}</p>
+          )}
         </div>
         <Badge variant={variant}>{result.status.toUpperCase()}</Badge>
       </div>
-      {result.response && (
-        <div className="rounded-xl bg-gray-50 p-2 text-xs text-gray-600">
-          <div className="flex items-center justify-between">
-            <span>HTTP {result.response.status ?? '—'}</span>
-            {traceHint && (
-              <span className="inline-flex items-center gap-1 text-indigo-600">
-                <LinkIcon className="h-3 w-3" />
-                trace: {String(traceHint)}
-              </span>
-            )}
-          </div>
-          <pre className="mt-1 overflow-x-auto text-[11px] text-gray-700">{String(responseBody ?? '—')}</pre>
-        </div>
+      
+      {expanded && (
+        <>
+          {/* Assertion Results */}
+          {result.assertionResults && result.assertionResults.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Assertions</p>
+              <div className="space-y-1">
+                {result.assertionResults.map((assertion, i) => (
+                  <AssertionDetail key={i} assertion={assertion} />
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Error Messages */}
+          {allErrors.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Errors</p>
+              <div className="rounded-xl bg-red-50 p-2 text-xs text-red-700 space-y-1">
+                {allErrors.map((error, i) => (
+                  <p key={i}>{error}</p>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Response Details */}
+          {result.response && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Response</p>
+              <div className="rounded-xl bg-gray-50 p-2 text-xs text-gray-600">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">HTTP {result.response.status ?? '—'}</span>
+                  {traceHint && (
+                    <span className="inline-flex items-center gap-1 text-indigo-600">
+                      <LinkIcon className="h-3 w-3" />
+                      trace: {String(traceHint)}
+                    </span>
+                  )}
+                </div>
+                <pre className="mt-1 overflow-x-auto text-[11px] text-gray-700 max-h-32 overflow-y-auto">{String(responseBody ?? '—')}</pre>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

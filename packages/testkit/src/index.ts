@@ -3,6 +3,9 @@ export type {
   TestCase,
   TestRequest,
   TestExpectations,
+  TestAssertion,
+  AssertionResult,
+  CaseResult,
   SuiteRunResult,
 } from './types';
 

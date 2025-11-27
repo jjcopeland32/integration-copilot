@@ -37,6 +37,19 @@ type CategorizedTestCase = {
   };
 };
 
+type AssertionResultSnapshot = {
+  passed: boolean;
+  assertion: {
+    type: string;
+    field?: string;
+    value?: unknown;
+    condition?: string;
+  };
+  error?: string;
+  expected?: unknown;
+  actual?: unknown;
+};
+
 type RunnerCaseResult = {
   id: string;
   name: string;
@@ -48,6 +61,7 @@ type RunnerCaseResult = {
     }>;
   }>;
   errors: string[];
+  assertionResults?: AssertionResultSnapshot[];
 };
 
 type CaseSnapshot = {
@@ -55,10 +69,12 @@ type CaseSnapshot = {
   name: string;
   status: 'passed' | 'failed' | 'skipped';
   message: string | null;
+  errors?: string[];
   response: {
     status: number | null;
     body: unknown;
   } | null;
+  assertionResults?: AssertionResultSnapshot[];
 };
 
 export type StoredRunResult = {
@@ -150,12 +166,14 @@ function buildCaseSnapshots(results: RunnerCaseResult[]): CaseSnapshot[] {
       name: result.name,
       status: result.status,
       message: result.errors.length > 0 ? result.errors.join('\n') : null,
+      errors: result.errors.length > 0 ? result.errors : undefined,
       response: lastAttempt
         ? {
             status: typeof lastAttempt.status === 'number' ? lastAttempt.status : null,
             body: lastAttempt.body ?? null,
           }
         : null,
+      assertionResults: result.assertionResults,
     };
   });
 }
