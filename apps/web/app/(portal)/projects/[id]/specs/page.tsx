@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +19,6 @@ import {
   Eye,
   FileText,
 } from 'lucide-react';
-import { useProjectContext } from '@/components/project-context';
 
 type ActionKind = 'blueprint' | 'mock' | 'tests' | 'import';
 
@@ -257,13 +256,14 @@ function SpecCard({
   );
 }
 
-export default function SpecsPage() {
-  const searchParams = useSearchParams();
-  const { projectId } = useProjectContext();
-  const projectFilter = searchParams.get('projectId') || projectId || undefined;
+export default function ProjectSpecsPage() {
+  const params = useParams();
+  const projectId = params.id as string;
   const utils = trpc.useUtils();
+  
   const { data: specs = [], isLoading } = trpc.spec.list.useQuery(
-    projectFilter ? { projectId: projectFilter } : { projectId: undefined }
+    { projectId },
+    { enabled: !!projectId }
   );
   const [url, setUrl] = useState('');
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -381,9 +381,9 @@ export default function SpecsPage() {
 
   const handleImport = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!url) return;
+    if (!url || !projectId) return;
     setLoadingAction('import');
-    importFromUrl.mutate({ projectId: projectFilter, url });
+    importFromUrl.mutate({ projectId, url });
   };
   
   // Check which specs have blueprints
@@ -399,7 +399,7 @@ export default function SpecsPage() {
   return (
     <>
       <div className="space-y-10">
-        <Hero onLoadSamples={() => loadSamples.mutate({ projectId: projectFilter })} loadingSamples={loadSamples.isPending} />
+        <Hero onLoadSamples={() => projectId && loadSamples.mutate({ projectId })} loadingSamples={loadSamples.isPending} />
 
         <div className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2 bg-white/90 backdrop-blur">
@@ -451,7 +451,7 @@ export default function SpecsPage() {
 
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-gray-900">Specs in Workspace</h2>
+            <h2 className="text-2xl font-semibold text-gray-900">Specs in Project</h2>
             <Badge variant="outline">{specs.length} total</Badge>
           </div>
           {isLoading ? (
@@ -488,3 +488,4 @@ export default function SpecsPage() {
     </>
   );
 }
+

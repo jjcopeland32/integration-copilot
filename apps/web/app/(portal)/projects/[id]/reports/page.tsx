@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Download, CheckCircle } from 'lucide-react';
-import { useProjectContext } from '@/components/project-context';
 import { trpc } from '@/lib/trpc/client';
 
 const riskBadge = (risk: string) => {
@@ -22,20 +22,12 @@ const riskBadge = (risk: string) => {
   }
 };
 
-export default function ReportsPage() {
-  const { projectId, projectName } = useProjectContext();
+export default function ProjectReportsPage() {
+  const params = useParams();
+  const projectId = params.id as string;
 
-  if (!projectId) {
-    return (
-      <div className="rounded-3xl border border-dashed border-gray-200 bg-white/80 p-12 text-center shadow-inner">
-        <h2 className="text-2xl font-semibold text-gray-900">Select a project to view reports</h2>
-        <p className="mt-2 text-sm text-gray-600">Readiness reports are scoped per project. Choose a project first.</p>
-        <Link href="/projects" className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg">
-          View Projects
-        </Link>
-      </div>
-    );
-  }
+  const projectQuery = trpc.project.get.useQuery({ id: projectId });
+  const projectName = projectQuery.data?.name ?? 'Project';
 
   const reportsQuery = trpc.report.list.useQuery({ projectId });
   const reports = reportsQuery.data ?? [];
@@ -52,7 +44,6 @@ export default function ReportsPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-gray-500">{projectName}</p>
           <h1 className="text-3xl font-bold">Readiness Reports</h1>
           <p className="text-gray-500 mt-2">Production go-live assessments</p>
         </div>
@@ -131,7 +122,7 @@ export default function ReportsPage() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Link href={`/reports/${report.id}`}>
+                      <Link href={`/projects/${projectId}/reports/${report.id}`}>
                         <Button variant="outline" size="sm">
                           View Report
                         </Button>
@@ -151,3 +142,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+

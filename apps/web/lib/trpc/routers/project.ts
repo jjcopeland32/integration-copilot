@@ -1,6 +1,6 @@
-import { router, publicProcedure } from '../server';
+import { router, protectedProcedure } from '../server';
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { ensureDemoWorkspace } from '../../workspace';
 import { Prisma } from '@prisma/client';
 import {
   createPlanBoardManager,
@@ -69,18 +69,33 @@ function mapProject(project: any) {
   };
 }
 
-export const projectRouter = router({
-  list: publicProcedure
-    .input(z.object({ orgId: z.string().optional() }).optional())
-    .query(async ({ ctx, input }) => {
-      const { org } = await ensureDemoWorkspace(ctx.prisma, {
-        userId: ctx.userId,
-        orgId: input?.orgId ?? ctx.orgId,
-      });
+/**
+ * Helper to verify project belongs to the user's org
+ */
+async function verifyProjectAccess(
+  prisma: any,
+  projectId: string,
+  orgId: string
+) {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, orgId },
+  });
+  if (!project) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'Project not found or access denied',
+    });
+  }
+  return project;
+}
 
-      const orgIds = input?.orgId ? [input.orgId] : [org.id];
+export const projectRouter = router({
+  list: protectedProcedure
+    .input(z.object({ orgId: z.string().optional() }).optional())
+    .query(async ({ ctx }) => {
+      // Only list projects belonging to the user's org
       const projects = await ctx.prisma.project.findMany({
-        where: { orgId: { in: orgIds } },
+        where: { orgId: ctx.orgId },
         include: projectInclude,
         orderBy: { createdAt: 'desc' },
       });
@@ -88,35 +103,32 @@ export const projectRouter = router({
       return projects.map(mapProject);
     }),
 
-  get: publicProcedure
+  get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const project = await ctx.prisma.project.findUnique({
-        where: { id: input.id },
+      // Verify project belongs to user's org
+      const project = await ctx.prisma.project.findFirst({
+        where: { id: input.id, orgId: ctx.orgId },
         include: projectInclude,
       });
       if (!project) return null;
       return mapProject(project);
     }),
 
-  create: publicProcedure
+  create: protectedProcedure
     .input(
       z.object({
         name: z.string(),
-        orgId: z.string().optional(),
         status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { org } = await ensureDemoWorkspace(ctx.prisma, {
-        userId: ctx.userId,
-        orgId: input.orgId ?? ctx.orgId,
-      });
       const defaultConfig = normalizePhaseConfig(undefined);
 
+      // Create project under user's org
       const project = await ctx.prisma.project.create({
         data: {
-          orgId: org.id,
+          orgId: ctx.orgId,
           name: input.name,
           status: input.status ?? 'DRAFT',
           phaseConfig: defaultConfig as unknown as Prisma.InputJsonValue,
@@ -127,7 +139,7 @@ export const projectRouter = router({
       return mapProject(project);
     }),
 
-  update: publicProcedure
+  update: protectedProcedure
     .input(
       z.object({
         id: z.string(),
@@ -136,6 +148,9 @@ export const projectRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // Verify project belongs to user's org
+      await verifyProjectAccess(ctx.prisma, input.id, ctx.orgId);
+      
       const { id, ...updates } = input;
       const updated = await ctx.prisma.project.update({
         where: { id },
@@ -145,9 +160,12 @@ export const projectRouter = router({
       return mapProject(updated);
     }),
 
-  delete: publicProcedure
+  delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // Verify project belongs to user's org
+      await verifyProjectAccess(ctx.prisma, input.id, ctx.orgId);
+
       await ctx.prisma.$transaction(async (tx) => {
         const suites = await tx.testSuite.findMany({
           where: { projectId: input.id },
@@ -189,11 +207,12 @@ export const projectRouter = router({
       return { success: true };
     }),
 
-  stats: publicProcedure
+  stats: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const project = await ctx.prisma.project.findUnique({
-        where: { id: input.id },
+      // Verify project belongs to user's org
+      const project = await ctx.prisma.project.findFirst({
+        where: { id: input.id, orgId: ctx.orgId },
         include: {
           specs: true,
           mocks: true,
@@ -236,7 +255,7 @@ export const projectRouter = router({
       };
     }),
 
-  configurePhases: publicProcedure
+  configurePhases: protectedProcedure
     .input(
       z.object({
         projectId: z.string(),
@@ -244,6 +263,9 @@ export const projectRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // Verify project belongs to user's org
+      await verifyProjectAccess(ctx.prisma, input.projectId, ctx.orgId);
+
       const normalized = normalizePhaseConfig(input.config);
       const project = await ctx.prisma.project.update({
         where: { id: input.projectId },
@@ -255,15 +277,19 @@ export const projectRouter = router({
       return mapProject(project);
     }),
 
-  telemetry: publicProcedure
+  telemetry: protectedProcedure
     .input(z.object({ projectId: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      // Verify project belongs to user's org
+      await verifyProjectAccess(ctx.prisma, input.projectId, ctx.orgId);
       return getProjectTelemetrySummary(input.projectId);
     }),
 
-  rotateTelemetrySecret: publicProcedure
+  rotateTelemetrySecret: protectedProcedure
     .input(z.object({ projectId: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      // Verify project belongs to user's org
+      await verifyProjectAccess(ctx.prisma, input.projectId, ctx.orgId);
       const secret = await rotateTelemetrySecret(input.projectId);
       return { secret };
     }),

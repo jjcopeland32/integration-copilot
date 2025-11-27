@@ -1,4 +1,5 @@
-import { router, publicProcedure } from '../server';
+import { router, protectedProcedure } from '../server';
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import {
   PLAN_PHASES,
@@ -14,14 +15,18 @@ const statusFilters: Array<{ status: PlanStatus; field: 'done' | 'inProgress' | 
 ];
 
 export const planRouter = router({
-  get: publicProcedure
+  get: protectedProcedure
     .input(z.object({ projectId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const project = await ctx.prisma.project.findUnique({
-        where: { id: input.projectId },
+      // Verify project belongs to user's org
+      const project = await ctx.prisma.project.findFirst({
+        where: { id: input.projectId, orgId: ctx.orgId },
       });
       if (!project) {
-        throw new Error('Project not found');
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Project not found or access denied',
+        });
       }
       const planBoard = createPlanBoardManager(ctx.prisma);
       const phaseConfig = normalizePhaseConfig(project.phaseConfig);

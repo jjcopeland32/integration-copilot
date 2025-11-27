@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-This guide shows you how to test all the features of the Integration Copilot application.
+This guide shows you how to test all the features of the Integration Copilot application using the **project-centric navigation** model.
 
 ---
 
@@ -16,29 +16,36 @@ pnpm install
 pnpm dev
 ```
 
-Then open http://localhost:3000, go to `/login`, and sign in with the demo account:
+Then open http://localhost:3000 and sign in:
 - **Email:** `demo@integration.local`
 - **Password:** `demo123`
+
+You will be redirected to `/projects` after successful login.
+
+---
+
+## 🧭 Navigation Structure
+
+The application uses a **project-centric** navigation model. All core features are accessed through a project:
+
+```
+/login              → Sign in page
+/projects           → Projects list (main landing page after login)
+/projects/[id]      → Project detail with tabbed navigation:
+  ├── Overview      → Project summary and quick actions
+  ├── Specs         → API specifications
+  ├── Mocks         → Mock services
+  ├── Tests         → Test suites
+  ├── Traces        → Request/response traces
+  ├── Plan          → Integration roadmap
+  └── Reports       → Readiness reports
+```
 
 ---
 
 ## 📋 Features You Can Test
 
-### 1. **Dashboard** (`/dashboard`)
-
-**What to see:**
-- 4 animated stat cards with gradients
-- Recent activity feed
-- Quick action buttons
-- Integration health metrics
-
-**Interactive elements:**
-- Click on quick action buttons (they show what they would do)
-- Hover over cards to see lift effects
-
----
-
-### 2. **Projects** (`/projects`)
+### 1. **Projects** (`/projects`)
 
 **What to see:**
 - Project cards with live stats (specs/mocks/tests pulled from Prisma)
@@ -46,19 +53,34 @@ Then open http://localhost:3000, go to `/login`, and sign in with the demo accou
 
 **Interactive elements:**
 - Click **New Project** to open the modal (name, status, description)
-- Open a project card to import specs inline, trigger the “Generate Mock & Tests” automation CTA, or delete the project
-- Hover to see animations / quick metrics snap-ins
+- Click a project card to enter the project detail page with tabbed navigation
+- Hover to see animations / quick metrics
 
 ---
 
-### 3. **API Specifications** (`/specs`) ⭐ **FULLY FUNCTIONAL**
+### 2. **Project Overview** (`/projects/[id]`)
+
+**What to see:**
+- Project header with name, status badge, and creation date
+- Horizontal tab navigation for all project sections
+- Quick action cards for generating mocks/tests and reports
+- Project telemetry panel
+
+**Interactive elements:**
+- Click on any tab (Specs, Mocks, Tests, etc.) to navigate within the project
+- Use quick action buttons to generate features
+
+---
+
+### 3. **API Specifications** (`/projects/[id]/specs`) ⭐ **FULLY FUNCTIONAL**
 
 **What you can test:**
 
 #### Load Sample Specs
-1. Click "Load Sample Specs" button (optionally with `?projectId=...` in the URL)
-2. See confirmation that specs are loaded
-3. Two spec cards appear: Stripe Payment API and Todo API (scoped to the current project context)
+1. Navigate to a project and click the "Specs" tab
+2. Click "Load Sample Specs" button
+3. See confirmation that specs are loaded
+4. Two spec cards appear: Stripe Payment API and Todo API
 
 #### Generate Blueprint
 1. Click "Generate Blueprint" on any spec card
@@ -70,122 +92,116 @@ Then open http://localhost:3000, go to `/login`, and sign in with the demo accou
 
 #### Generate Mock Server
 1. Click **Mock** on any spec card
-2. A new mock instance is created, its Express server auto-starts on the next available port (3001+), and the config + Postman collection are stored in Prisma
-3. Verify the mock is RUNNING on `/mocks` and hit the logged base URL to see responses
+2. A new mock instance is created, its Express server auto-starts on the next available port (3001+)
+3. Verify the mock is RUNNING on the Mocks tab
 
 #### Generate Tests
 1. Click **Tests** on any spec card
-2. Ten golden tests (38 cases) are generated and stored as a `TestSuite` for that project
-3. Suites automatically target the latest running mock so `/tests` can execute against the simulated API
+2. Golden tests are generated and stored as a `TestSuite` for that project
+3. Navigate to the Tests tab to see and run the suites
 
 ---
 
-### 4. **Mock Services** (`/mocks`)
+### 4. **Mock Services** (`/projects/[id]/mocks`)
 
 **What to see:**
 - Mock server cards with live status + base URLs
-- Request counters (placeholder until telemetry lands)
+- Request counters
 - Start/Stop controls for each Express instance
 
 **Interactive elements:**
-- Click **Start** to boot the Express mock (server manager spins it up and status flips to RUNNING)
+- Click **Start** to boot the Express mock (server manager spins it up)
 - Click **Stop** to tear down the server
 - Download Postman collections for quick manual testing
 
 ---
 
-### 5. **Test Suites** (`/tests`) ⭐ **FULLY FUNCTIONAL**
+### 5. **Test Suites** (`/projects/[id]/tests`) ⭐ **FULLY FUNCTIONAL**
 
 **What you can test:**
 
 #### Run Individual Tests
 1. Click "Run Test" on any test card
-2. Watch the loading animation (2 seconds)
+2. Watch the loading animation
 3. See pass/fail results appear
 4. Notice the card color changes based on results:
    - Green = All passed
    - Orange/Red = Some failed
-5. Inspect the new "Case Results" section on each suite card – every individual golden test shows pass/fail/skip status along with the HTTP response that was captured.
-6. Need to dig deeper? Use the “Latest JSON” button on any suite to download the structured run artifact straight from the UI instead of spelunking through `.artifacts/testruns`.
+5. Inspect the "Case Results" section on each suite card
 
 #### Run All Tests
 1. Click "Run All Tests" button at the top
-2. Watch all 10 test suites run sequentially
-3. See suite-level pass/fail counts update (latest run persisted)
-4. Inspect `.artifacts/testruns` for a consolidated JSON summary (suite metadata + each case’s final attempt). Those artifacts are produced by the same handler that powers the UI, so failures you see in the interface will always have matching evidence on disk.
-5. (Optional) Open `/traces` after a run—the handler emits a trace row per case, so you can see the request/response meta captured for the last execution. This is handy for debugging why a suite failed.
+2. Watch all test suites run sequentially
+3. See suite-level pass/fail counts update
 
 #### Test Categories
-The page shows 10 golden test categories:
-1. **Authentication Tests** (5 tests) - Security
-2. **Idempotency Tests** (3 tests) - Reliability
-3. **Rate Limiting Tests** (4 tests) - Performance
-4. **Error Handling Tests** (6 tests) - Robustness
-5. **Webhook Tests** (4 tests) - Integration
-6. **Pagination Tests** (3 tests) - Data
-7. **Filtering Tests** (4 tests) - Data
-8. **Versioning Tests** (2 tests) - Compatibility
-9. **CORS Tests** (3 tests) - Security
-10. **Security Headers Tests** (4 tests) - Security
-
-**Total: 38 tests across 10 categories**
+The page shows golden test categories including:
+- **Authentication Tests** - Security
+- **Idempotency Tests** - Reliability
+- **Rate Limiting Tests** - Performance
+- **Error Handling Tests** - Robustness
+- **Webhook Tests** - Integration
+- **Pagination Tests** - Data
+- **Filtering Tests** - Data
+- **Versioning Tests** - Compatibility
+- **CORS Tests** - Security
+- **Security Headers Tests** - Security
 
 ---
 
-### 6. **Traces** (`/traces`)
+### 6. **Traces** (`/projects/[id]/traces`)
 
 **What to see:**
-- Request/response traces stored in Prisma for the active project
+- Request/response traces stored for the project
 - Validation verdicts, latency, and status codes
 
 **Notes:**
-- Posting to `/api/trace` (with the HMAC header) immediately surfaces here
-- Mock/test traffic will hook into this view in an upcoming telemetry pass
+- Mock/test traffic appears here after test runs
+- Useful for debugging failed tests
 
 ---
 
-### 7. **Plan Board** (`/plan`)
+### 7. **Plan Board** (`/projects/[id]/plan`)
 
 **What to see:**
 - 5-phase integration roadmap seeded automatically per project
-- Overall progress bar + per-phase completion (based on real `PlanItem` status)
+- Overall progress bar + per-phase completion
 
 **Notes:**
-- Items are currently read-only from the UI; mutate via Prisma or upcoming management flows
-- Future telemetry work will auto-advance these stages when tests/traces pass
+- Items are currently read-only from the UI
+- Plan stages auto-advance based on test/trace results
 
 ---
 
-### 8. **Reports** (`/reports`)
+### 8. **Reports** (`/projects/[id]/reports`)
 
 **What to see:**
-- Readiness report cards (auto-generated if none exist for the project)
+- Readiness report cards (auto-generated if none exist)
 - Score + risk badges
-- Markdown-rendered reports on `/reports/[id]`
+- Detailed report view at `/projects/[id]/reports/[reportId]`
 
 **Notes:**
-- Signing/download controls are stubbed until the approval workflow lands
-- Metrics derive from stored tests/traces; because `/api/tests/run` now feeds both the `Trace` table and plan board progress, you can re-run a suite and see the readiness score update on the next report refresh.
+- Metrics derive from stored tests/traces
+- Re-run tests to see readiness score update
 
 ---
 
 ## 🎨 UI Features to Test
 
+### Enterprise Glass Theme (Client Portal)
+- **Background**: Light mesh gradient with floating orbs
+- **Cards**: Frosted glass effect with backdrop blur
+- **Colors**: Indigo/purple accents
+
+### Crystal Ice Theme (Partner Portal at `/partner`)
+- **Background**: Dark aurora effect with floating particles
+- **Cards**: Crystal-like glass effects
+- **Colors**: Cyan/purple accents
+
 ### Animations
 - **Page Load**: All pages fade in smoothly
 - **Card Hover**: Cards lift and scale on hover
 - **Button Hover**: Buttons show shadow effects
-
-### Gradients
-- **Backgrounds**: Blue-to-indigo gradient background
-- **Buttons**: Colorful gradient buttons
-- **Icons**: Gradient-colored icon backgrounds
-- **Text**: Gradient text on headers
-
-### Glass Morphism
-- **Cards**: Frosted glass effect with backdrop blur
-- **Borders**: Subtle white borders
-- **Shadows**: Soft shadows for depth
 
 ---
 
@@ -211,16 +227,16 @@ The page shows 10 golden test categories:
 ## 🔧 Technical Details
 
 ### Backend
-- **PostgreSQL + Prisma** - Persistent workspace data (projects/specs/mocks/tests/plan/report)
+- **PostgreSQL + Prisma** - Persistent workspace data
 - **Sample OpenAPI specs** - Stripe-style Payments + Todo APIs
-- **tRPC API** - Type-safe router stack with project-scoped contexts
-- **5 core packages** - spec-engine, mockgen, validator, orchestrator, connectors
+- **tRPC API** - Type-safe router with org-scoped contexts
+- **Core packages** - spec-engine, mockgen, validator, orchestrator, connectors
 
 ### Frontend
 - **Next.js 15 / React 18** - App Router + server components
-- **Tailwind CSS 3** - Modern styling
+- **Tailwind CSS 3** - Modern styling with glassmorphism
 - **Lucide Icons** - Iconography
-- **React Query + tRPC hooks** - Data fetching/state tied to the active project
+- **React Query + tRPC hooks** - Data fetching tied to active project
 
 ---
 
@@ -229,47 +245,53 @@ The page shows 10 golden test categories:
 ### ✅ Fully Functional Today
 - **Projects/Specs** – Real Prisma data, automation CTA, inline import
 - **Mocks** – Generates + starts Express servers, start/stop controls work
-- **Tests** – Golden suites runnable via `/api/tests/run`, results persisted
-- **Plan Board & Reports** – Backed by real `PlanItem` + `Report` rows, auto-seeded per project
-- **Traces** – HMAC-protected ingestion with redaction; visible per project
+- **Tests** – Golden suites runnable, results persisted
+- **Plan Board & Reports** – Backed by real data, auto-seeded per project
+- **Traces** – HMAC-protected ingestion with redaction
+- **Project-centric navigation** – All features scoped under `/projects/[id]`
+- **Authentication** – Middleware protection on all portal routes
 
 ### ⚠️ Still in Progress (see `docs/ISSUE_TRACKER.md`)
-- Automated mock health checks/restarts and dashboard surfacing (basic health/uptime now shown on mocks page)
-- Per-case test insights + artifact viewer + trace/plan/report linkage in UI
-- Validator HMAC signing/real validation and rate limiting on sensitive APIs
-- Telemetry-driven updates to plan/report metrics and dashboard health data
-- Auth beyond demo credentials; RBAC UI/flows
-- Slack/Jira notification hooks; browser E2E tests in CI
+- Automated mock health checks/restarts
+- Validator HMAC signing/real validation
+- Dashboard health metrics
+- OAuth and multi-user onboarding
+- Slack/Jira notification hooks
 
 ---
 
 ## 🎯 Recommended Testing Flow
 
-1. **Start at Dashboard** - Get overview
-2. **Go to Specs** - Load sample specs
-3. **Generate features** - Try blueprint, mock, and test generation
-4. **Go to Tests** - Run the golden tests
-5. **Explore other pages** - See the full UI
+1. **Sign in** at `/login` with demo credentials
+2. **Go to Projects** (`/projects`) - See your projects list
+3. **Select or create a project** - Click to enter project detail
+4. **Navigate using tabs** - Use the horizontal tab bar:
+   - **Specs tab** - Load sample specs
+   - **Mocks tab** - Start mock servers
+   - **Tests tab** - Run test suites
+   - **Traces tab** - View request/response history
+   - **Plan tab** - Check integration progress
+   - **Reports tab** - View readiness reports
+5. **Test the flow**: Specs → Generate Mocks → Generate Tests → Run Tests → View Results
+
+---
+
+## 🔐 Partner Portal Testing
+
+The partner portal has a separate theme and authentication:
+
+1. Navigate to `http://localhost:3000/partner/login`
+2. Enter a valid invite token (create one via database seed)
+3. Access the Crystal Ice themed portal with partner-scoped data
 
 ---
 
 ## 🐛 Known Limitations
 
-- Mock health checks are manual; no auto-restart/circuit-breaker yet (ports are reused and mocks can be deleted/reset)
-- Golden test UI lacks per-case details; artifacts live in `.artifacts/testruns`
-- Validator currently stubs signing/validation; rate limiting not enforced
-- Telemetry→plan/report automation is partial; dashboard lacks health/uptime metrics
-- Auth is Prisma-backed credentials; multi-user onboarding/OAuth/invite flows are still pending
-
----
-
-## 🚀 Next Steps
-
-1. **Add mock cleanup controls** – Delete/reset actions plus shared port pool
-2. **Expose detailed test results** – UI for per-case logs and download links
-3. **Telemetry-driven evidence** – Emit trace rows for mock/test traffic and auto-advance plan stages
-4. **Dashboard refresh** – Replace placeholder stats with real Prisma aggregates
-5. **SDK/spec automation** – Hook upcoming telemetry SDK into spec ingestion so projects stay current
+- Mock health checks are manual; no auto-restart yet
+- Validator currently stubs signing/validation
+- Auth is credential-based; OAuth/invite flows pending
+- Dashboard lacks real-time health metrics
 
 ---
 
@@ -277,7 +299,7 @@ The page shows 10 golden test categories:
 
 For questions or issues:
 - GitHub: https://github.com/jjcopeland32/integration-copilot
-- Documentation: See README_FINAL.md
+- Documentation: See README.md
 
 ---
 

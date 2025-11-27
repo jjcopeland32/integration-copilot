@@ -19,49 +19,36 @@
 - **OpenAPI/AsyncAPI Import** – Load and normalize API specifications into Prisma
 - **Blueprint Generation** – Automated integration documentation per spec
 - **Mock Server Automation** – Generate + auto-start Express mocks with latency/rate-limit simulation
-- **Golden Tests** – 10 comprehensive suites (38 tests) stored per project and runnable via `/api/tests/run`, with suite-level UI summaries and JSON artifacts (see `docs/ISSUE_TRACKER.md` for planned per-case UI)
+- **Golden Tests** – 10 comprehensive suites (38 tests) stored per project and runnable via `/api/tests/run`, with suite-level UI summaries and JSON artifacts
 - **Project Lifecycle** – Create/delete projects, attach specs, and manage active project context
 - **Trace Validation** – Request/response validation and logging (scoped to each project)
 - **Plan Board** – 5-phase integration roadmap backed by real `PlanItem` records, auto-updates when telemetry meets criteria
 - **Readiness Reports** – Auto-generated go-live assessment with live metrics from stored tests/traces + markdown viewer
 
-> Looking ahead: the partner-facing portal (see `docs/partner-portal.md`) will expose these same mocks/tests/plan workflows directly to integrator teams, plus an AI assistant that summarizes failures and next steps. Active work items are tracked in `docs/ISSUE_TRACKER.md`.
+> The partner-facing portal (see `docs/partner-portal.md`) exposes these same mocks/tests/plan workflows directly to integrator teams, plus an AI assistant that summarizes failures and next steps.
 
 ### 🎨 Modern UI
 - ✨ Smooth animations and transitions
 - 🌈 Colorful gradients throughout
-- 💎 Glass morphism cards
+- 💎 Glass morphism cards (Enterprise Glass for client, Crystal Ice for partner portal)
 - 📱 Fully responsive design
 - ⚡ Interactive test runner
 - 🎭 Real-time results
 
----
+### 📂 Project-Centric Navigation
 
-## 🧭 WO-3.2 UI/UX Blueprint
+All functionality is organized under projects:
 
-To support the upcoming Partner Core milestones, we’re refreshing the experience for both the buyer console and partner portal:
-
-### Dual Experience Strategy
-- **Buyer Console** (internal teams): deep navy + electric blue palette, left rail navigation (`Dashboard · Projects · Specs · Mocks · Tests · Traces · Plan Board · Reports · Admin`), environment selector, org/project switcher, and observability-first dashboards.
-- **Partner Portal** (vendor teams): indigo + teal palette, simplified nav (`Overview · Checklist · Specs · Mocks · Tests · Traces · Readiness`), contextual guidance, and progress coaching. Separate subdomains keep identities distinct (`console.integrationcopilot.com` vs `{buyer}.partners.integrationcopilot.com`).
-
-### Buyer Console Highlights
-- **Home Dashboard**: readiness hero strip, suites card (pass/fail trend + “Run all”), traces 24h metrics (count, err rate, p95), partner readiness summaries, and an activity feed.
-- **Project Overview Dashboard**: suites widget (`{ pass, fail, lastRunAt }`), traces24h (`count, errRate, p95`), readiness bar by phase, and spec capability summaries (paths, key endpoints).
-- **Telemetry Tab Enhancements**: show `/api/trace` URL, masked HMAC secret w/ rotate action, copy-ready cURL/Node snippets, and last 5 deliveries with signature verdict badges.
-- **Generate Mocks & Tests CTA**: prominent button that kicks off the spec → mock → tests pipeline, surfaces progress per spec, and links to newly generated assets.
-
-### Partner Portal Highlights
-- **Overview**: timeline hero (“You’re on track to go live in {N} days”), checklist progress, recent fails, and telemetry quick stats.
-- **Checklist**: vertical phase-based stepper with auto-pass badges (“Verified by tests”) for suite-linked steps and manual override modal with comment capture.
-- **Tests & Telemetry**: curated suite list with plain-language descriptions plus trace viewer scoped to the partner’s traffic.
-
-### Checklist Automation Model
-- New Prisma models: `ChecklistTemplate`, `ChecklistStep`, `ProjectChecklist`.
-- Each step links to one or more suite IDs; golden test persistence auto-completes steps when all linked suites pass.
-- Manual override stores user, timestamp, comment; buyer console shows audit trail, partner portal surfaces read-only state.
-
-This blueprint guides WO-3.2 delivery: dashboard API, telemetry UI, checklist schema + automation, and the “Generate Mocks & Tests” CTA.
+```
+/projects                      # Project list
+/projects/[id]                 # Project overview/dashboard
+/projects/[id]/specs           # API specifications
+/projects/[id]/mocks           # Mock servers
+/projects/[id]/tests           # Golden test suites
+/projects/[id]/traces          # Request/response traces
+/projects/[id]/plan            # Integration plan board
+/projects/[id]/reports         # Readiness reports
+```
 
 ---
 
@@ -114,9 +101,9 @@ curl -sS -X POST http://localhost:3000/api/trace \
   -d "$PAYLOAD"
 ```
 
-The server will persist a redacted payload (card numbers, CVVs, SSNs, and passwords are scrubbed by default) and return `{ ok: true }` when the signature is valid. Grab the per-project signing secret from the **Telemetry** panel inside any project page.
+The server will persist a redacted payload (card numbers, CVVs, SSNs, and passwords are scrubbed by default) and return `{ ok: true }` when the signature is valid.
 
-- **UI:** Visit [`/specs`](http://localhost:3000/specs), load the Stripe-style or Todo sample spec, generate mocks/tests, then go to `/tests` and click **Run All**. Suites execute against the auto-started mock for that project, emit trace rows, and update the plan board automatically.
+- **UI:** Open a project at `/projects/[id]`, go to the Specs tab, load the sample specs, generate mocks/tests, then go to the Tests tab and click **Run All**. Suites execute against the auto-started mock, emit trace rows, and update the plan board automatically.
 - **CLI:**
 
   ```bash
@@ -127,33 +114,35 @@ The server will persist a redacted payload (card numbers, CVVs, SSNs, and passwo
 
 ### 🐾 Load Sample Specs
 
-On the `/specs` page press **Load Sample Specs**. The Spec Engine ingests the Stripe payments + Todo APIs, generates blueprints, mocks, and tests scoped to your active project, and seeds the plan/report data.
+In the Specs tab of any project, press **Load Sample Specs**. The Spec Engine ingests the Stripe payments + Todo APIs, generates blueprints, mocks, and tests scoped to your active project.
 
 ---
 
 ## 🧪 Try It Out
 
-### 1. Load Sample API Specs
-1. Navigate to **Specs** (`/specs`)
+### 1. Create or Select a Project
+1. Navigate to **Projects** (`/projects`)
+2. Create a new project or click an existing one
+3. You'll land on the project's Overview tab with tabbed navigation
+
+### 2. Load Sample API Specs
+1. Click the **Specs** tab
 2. Click **Load Sample Specs**
-3. Watch Stripe-style Payments + Todo specs appear for the active project
+3. Watch Stripe-style Payments + Todo specs appear
 
-### 1b. Project Automation
-1. Visit **Projects** (`/projects`) and open a project card
-2. Press **Generate Mock & Tests** to run automation across every attached spec (new mocks auto-start)
-3. Use the inline “Manage Specs” button to jump back into `/specs?projectId=...`
+### 3. Generate Mocks & Tests
+1. On the **Overview** tab, click **Generate Mock & Tests**
+2. This runs automation across every attached spec (mocks auto-start)
+3. Navigate to **Mocks** or **Tests** tabs to see results
 
-### 2. Run Golden Tests
-1. Navigate to **Tests** (`/tests`)
+### 4. Run Golden Tests
+1. Click the **Tests** tab
 2. Run a single suite or **Run All Tests**
-3. Latest pass/fail counts persist per project and emit telemetry traces/evidence
+3. Latest pass/fail counts persist and emit telemetry traces
 
-### 3. Explore Features
-- **Dashboard** – Overview stats and activity
-- **Projects** – Manage integration projects + automation
-- **Mocks** – Start/stop Express-based mock services
-- **Traces** – Request/response logs per project
-- **Plan Board** – Real 5-phase integration roadmap
+### 5. Explore Other Tabs
+- **Traces** – Request/response logs for the project
+- **Plan** – 5-phase integration roadmap
 - **Reports** – Auto-generated readiness assessments
 
 ---
@@ -165,17 +154,22 @@ On the `/specs` page press **Load Sample Specs**. The Spec Engine ingests the St
 ```
 integration-copilot/
 ├── apps/
-│   └── web/              # Next.js 15 web application
-│       ├── app/          # App router pages
-│       ├── components/   # React components
-│       └── lib/          # Utilities and tRPC
+│   └── web/                     # Next.js 15 web application
+│       ├── app/
+│       │   ├── (auth)/          # Login pages (no sidebar)
+│       │   ├── (portal)/        # Authenticated client portal
+│       │   │   └── projects/    # Project pages (tabbed navigation)
+│       │   └── partner/         # Partner portal (Crystal Ice theme)
+│       ├── components/          # React components
+│       └── lib/                 # Utilities and tRPC
 ├── packages/
-│   ├── spec-engine/      # OpenAPI/AsyncAPI processing
-│   ├── mockgen/          # Mock server generation
-│   ├── validator/        # Request/response validation
-│   ├── orchestrator/     # RBAC and workflow
-│   └── connectors/       # Slack & Jira integrations
-└── prisma/               # Database schema
+│   ├── spec-engine/             # OpenAPI/AsyncAPI processing
+│   ├── mockgen/                 # Mock server generation
+│   ├── validator/               # Request/response validation
+│   ├── orchestrator/            # RBAC and workflow
+│   ├── testkit/                 # Test runner and assertions
+│   └── connectors/              # Slack & Jira integrations
+└── prisma/                      # Database schema
 ```
 
 ### Tech Stack
@@ -227,6 +221,7 @@ integration-copilot/
 - **[UI_COMPLETE.md](./UI_COMPLETE.md)** - Web application details
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Production deployment guide
 - **[EXAMPLES.md](./EXAMPLES.md)** - Code usage examples
+- **[docs/partner-portal.md](./docs/partner-portal.md)** - Partner portal documentation
 
 ---
 
@@ -248,11 +243,9 @@ integration-copilot/
 
 1. **Mock Lifecycle Controls** – shared port pooling and health indicators for long-running mocks.
 2. **Golden Test Insights** – deeper per-case artifacts, diffs, and history.
-3. **Plan Board Configuration** – enable/disable phases per integration scope (e.g., optional webhooks/UAT) and capture scenario/benchmark requirements.
-4. **Telemetry & Evidence** – expand trace emitters (UAT scenarios, manual evidence) and auto-advance plan/report metrics based on project-specific criteria.
-5. **SDK & Spec Sync** – allow the telemetry SDK/webhook bridge to push OpenAPI updates + runtime events straight into projects.
-
-Completing these steps turns today’s automated scaffolding into a fully instrumented, evidence-driven E2E workflow.
+3. **Plan Board Configuration** – enable/disable phases per integration scope and capture scenario/benchmark requirements.
+4. **Telemetry & Evidence** – expand trace emitters and auto-advance plan/report metrics based on project criteria.
+5. **SDK & Spec Sync** – allow the telemetry SDK/webhook bridge to push OpenAPI updates + runtime events.
 
 ---
 
@@ -330,8 +323,7 @@ See `.env.example` for full list.
 ## 📊 Project Stats
 
 - **Total Code:** ~10,000 lines
-- **Packages:** 5 core packages
-- **Pages:** 9 web pages
+- **Packages:** 6 core packages
 - **Components:** 20+ React components
 - **Tests:** 38 golden tests
 - **Documentation:** 2,500+ lines
@@ -364,14 +356,6 @@ Built with:
 - [Prisma](https://www.prisma.io/)
 - [Tailwind CSS](https://tailwindcss.com/)
 - [Lucide Icons](https://lucide.dev/)
-
----
-
-## 📞 Support
-
-- **Issues:** [GitHub Issues](https://github.com/jjcopeland32/integration-copilot/issues)
-- **Documentation:** See docs folder
-- **Email:** support@example.com
 
 ---
 

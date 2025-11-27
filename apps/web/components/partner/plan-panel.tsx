@@ -76,7 +76,7 @@ export function PartnerPlanPanel() {
             Milestones & Evidence
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Upload proof once each phase is satisfied so SYF can unlock the next gate.
+            Upload proof once each phase is satisfied to unlock the next gate.
           </p>
         </div>
       </div>
@@ -123,7 +123,7 @@ export function PartnerPlanPanel() {
       {planItems.length === 0 ? (
         <div className="glass-crystal-card rounded-3xl border-dashed p-10 text-center animate-in stagger-2">
           <ClipboardCheck className="mx-auto h-10 w-10 text-teal-400/40 mb-3" />
-          <p className="text-slate-400">Plan board not provisioned yet. Your SYF contact will assign milestones.</p>
+          <p className="text-slate-400">Plan board not provisioned yet. Your integration manager will assign milestones.</p>
         </div>
       ) : (
         <div className="space-y-4">

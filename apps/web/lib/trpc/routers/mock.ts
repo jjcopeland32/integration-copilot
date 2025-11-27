@@ -1,7 +1,8 @@
-import { router, publicProcedure } from '../server';
+import { router, protectedProcedure } from '../server';
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { resolveProject } from '../../workspace';
 import { MockStatus } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import { ensureMockServer, stopMockServer } from '../../mock-server-manager';
 import { setTimeout as delay } from 'node:timers/promises';
 import { config } from '@/lib/config';
@@ -117,42 +118,75 @@ async function pingMock(baseUrl: string, timeoutMs: number): Promise<'healthy' |
   }
 }
 
+/**
+ * Helper to verify project belongs to the user's org
+ */
+async function verifyProjectAccess(
+  prisma: PrismaClient,
+  projectId: string,
+  orgId: string
+) {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, orgId },
+  });
+  if (!project) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'Project not found or access denied',
+    });
+  }
+  return project;
+}
+
+/**
+ * Helper to verify mock instance belongs to user's org via its project
+ */
+async function verifyMockAccess(
+  prisma: PrismaClient,
+  mockId: string,
+  orgId: string
+) {
+  const mock = await prisma.mockInstance.findFirst({
+    where: { id: mockId },
+    include: { project: true },
+  });
+  if (!mock || mock.project.orgId !== orgId) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'Mock instance not found or access denied',
+    });
+  }
+  return mock;
+}
+
 export const mockRouter = router({
-  list: publicProcedure
-    .input(z.object({ projectId: z.string().optional() }).optional())
+  list: protectedProcedure
+    .input(z.object({ projectId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const project = await resolveProject(ctx.prisma, {
-        projectId: input?.projectId,
-        userId: ctx.userId,
-        orgId: ctx.orgId,
-      });
+      // Verify project belongs to user's org
+      await verifyProjectAccess(ctx.prisma, input.projectId, ctx.orgId);
 
       const instances = await ctx.prisma.mockInstance.findMany({
-        where: { projectId: project.id },
+        where: { projectId: input.projectId },
         orderBy: { createdAt: 'desc' },
       });
       return instances.map(describeMock);
     }),
 
-  get: publicProcedure
+  get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const instance = await toMockRecord(ctx, input.id);
-      if (!instance) {
-        throw new Error('Mock instance not found');
-      }
+      // Verify mock belongs to user's org
+      const instance = await verifyMockAccess(ctx.prisma, input.id, ctx.orgId);
       return describeMock(instance);
     }),
 
-  start: publicProcedure
+  start: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const mock = await ctx.prisma.mockInstance.findUnique({
-        where: { id: input.id },
-      });
-      if (!mock) {
-        throw new Error('Mock instance not found');
-      }
+      // Verify mock belongs to user's org
+      const mock = await verifyMockAccess(ctx.prisma, input.id, ctx.orgId);
+      
       await ensureMockServer(mock, { forceRestart: true });
       const now = new Date();
       return ctx.prisma.mockInstance.update({
@@ -167,9 +201,12 @@ export const mockRouter = router({
       });
     }),
 
-  stop: publicProcedure
+  stop: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // Verify mock belongs to user's org
+      await verifyMockAccess(ctx.prisma, input.id, ctx.orgId);
+      
       await stopMockServer(input.id);
       return ctx.prisma.mockInstance.update({
         where: { id: input.id },
@@ -181,24 +218,23 @@ export const mockRouter = router({
       });
     }),
 
-  delete: publicProcedure
+  delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // Verify mock belongs to user's org
+      await verifyMockAccess(ctx.prisma, input.id, ctx.orgId);
+      
       await stopMockServer(input.id);
       return ctx.prisma.mockInstance.delete({
         where: { id: input.id },
       });
     }),
 
-  checkHealth: publicProcedure
+  checkHealth: protectedProcedure
     .input(z.object({ id: z.string(), timeoutMs: z.number().min(500).max(10000).optional() }))
     .mutation(async ({ ctx, input }) => {
-      const mock = await ctx.prisma.mockInstance.findUnique({
-        where: { id: input.id },
-      });
-      if (!mock) {
-        throw new Error('Mock instance not found');
-      }
+      // Verify mock belongs to user's org
+      const mock = await verifyMockAccess(ctx.prisma, input.id, ctx.orgId);
 
       const timeoutMs = input.timeoutMs ?? config.mocks.healthCheckTimeoutMs;
       const now = new Date();
@@ -229,24 +265,22 @@ export const mockRouter = router({
       return describeMock(updated as any);
     }),
 
-  checkAll: publicProcedure
+  checkAll: protectedProcedure
     .input(
       z.object({
-        projectId: z.string().optional(),
+        projectId: z.string(),
         timeoutMs: z.number().min(500).max(10000).optional(),
         autoRestart: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const project = await resolveProject(ctx.prisma, {
-        projectId: input?.projectId,
-        userId: ctx.userId,
-        orgId: ctx.orgId,
-      });
+      // Verify project belongs to user's org
+      await verifyProjectAccess(ctx.prisma, input.projectId, ctx.orgId);
+      
       const timeoutMs = input.timeoutMs ?? config.mocks.healthCheckTimeoutMs;
       const autoRestart = input.autoRestart ?? config.mocks.autoRestart;
       const mocks = await ctx.prisma.mockInstance.findMany({
-        where: { projectId: project.id },
+        where: { projectId: input.projectId },
       });
 
       const results: any[] = [];

@@ -117,12 +117,8 @@ export async function resolveProject(
     });
   }
 
-  // Fallback to demo workspace for unauthenticated contexts
-  const { project } = await ensureDemoWorkspace(prisma, {
-    userId: opts.userId,
-    orgId: opts.orgId,
-  });
-  return project;
+  // No orgId means unauthenticated - reject the request
+  throw new Error('Authentication required: orgId is missing');
 }
 
 export async function ensureProjectForSpec(

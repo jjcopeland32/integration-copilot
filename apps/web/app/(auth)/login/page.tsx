@@ -25,7 +25,7 @@ export default function LoginPage() {
       email,
       password,
       redirect: false,
-      callbackUrl: '/dashboard',
+      callbackUrl: '/projects',
     });
 
     if (result?.error) {
@@ -104,7 +104,7 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 flex items-center justify-between text-xs text-slate-500">
-          <Link href="/dashboard" className="flex items-center gap-1 text-slate-400 hover:text-slate-600">
+          <Link href="/projects" className="flex items-center gap-1 text-slate-400 hover:text-slate-600">
             <ArrowLeft className="h-3 w-3" />
             Back to app
           </Link>

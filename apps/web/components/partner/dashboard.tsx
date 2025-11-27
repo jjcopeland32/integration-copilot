@@ -95,7 +95,7 @@ export function PartnerDashboard() {
           icon={<FileText className="h-5 w-5" />}
           label="Specs"
           value={`${specs.length}`}
-          helper="Blueprints shared by SYF"
+          helper="Shared blueprints"
           gradient="from-cyan-500 to-blue-600"
           delay={0}
         />
@@ -217,7 +217,7 @@ export function PartnerDashboard() {
               <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-8 text-center text-sm text-slate-400">
                 <FlaskConical className="mx-auto h-8 w-8 text-purple-400/40 mb-3" />
                 <p>No partner-triggered runs yet.</p>
-                <p className="text-xs text-slate-500 mt-1">Generate mocks and request a run from the SYF team.</p>
+                <p className="text-xs text-slate-500 mt-1">Generate mocks and request a run from your integration team.</p>
               </div>
             ) : (
               recentRuns.map((run) => {

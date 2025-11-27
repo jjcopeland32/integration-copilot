@@ -1,15 +1,14 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import clsx from 'clsx';
-import { ArrowLeft, Upload, Play, FileText, Trash2, Loader2, CheckCircle2, AlertCircle, Settings2, Thermometer } from 'lucide-react';
+import { Upload, Play, FileText, Trash2, Loader2, CheckCircle2, AlertCircle, Settings2, Thermometer } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useEffect, useState } from 'react';
-import { useProjectContext } from '@/components/project-context';
+import { useState, useEffect } from 'react';
 import { UI_PLAN_PHASES, type UIPhaseKey } from '@/data/plan-phases';
 import { ProjectTelemetryPanel } from '@/components/projects/telemetry-panel';
 
@@ -33,14 +32,16 @@ type PhaseConfigState = Record<UIPhaseKey, PhaseSettingsState>;
 
 const lockedPhases = new Set<UIPhaseKey>(['auth', 'core', 'cert']);
 
-export default function ProjectDetailPage({ params }: { params: { id: string } }) {
+export default function ProjectOverviewPage() {
   const router = useRouter();
-  const projectQuery = trpc.project.get.useQuery({ id: params.id });
+  const params = useParams();
+  const projectId = params.id as string;
+  
+  const projectQuery = trpc.project.get.useQuery({ id: projectId });
   const deleteMutation = trpc.project.delete.useMutation({
     onSuccess: () => router.push('/projects'),
   });
   const utils = trpc.useUtils();
-  const { setActiveProject } = useProjectContext();
 
   const project = projectQuery.data;
   const [showDelete, setShowDelete] = useState(false);
@@ -77,13 +78,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
     },
   });
 
-  useEffect(() => {
-    if (!project) {
-      return;
-    }
-    setActiveProject({ id: project.id, name: project.name });
-  }, [project, setActiveProject]);
-
+  // Synchronize phase config from project data when it loads or changes
   useEffect(() => {
     if (!project?.phaseConfig) {
       setPhaseConfig(null);
@@ -104,11 +99,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   }, [project?.phaseConfig]);
 
   if (projectQuery.isLoading || !project) {
-    return (
-      <div className="rounded-3xl border border-gray-100 bg-white/70 p-12 text-center text-gray-500 shadow-inner">
-        {projectQuery.isLoading ? 'Loading project…' : 'Project not found.'}
-      </div>
-    );
+    return null; // Layout handles loading state
   }
 
   const createdAt = new Date(project.createdAt).toLocaleDateString();
@@ -243,43 +234,16 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 
   return (
     <div className="space-y-8">
+      {/* Project Summary */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link href="/projects">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-          </Link>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1"
-            onClick={() => router.push(`/specs?projectId=${project.id}`)}
-          >
-            Manage Specs
-          </Button>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="destructive" size="sm" className="gap-1" onClick={() => setShowDelete(true)}>
-            <Trash2 className="h-4 w-4" />
-            Delete Project
-          </Button>
-        </div>
+        <p className="text-sm text-gray-500">Created {createdAt}</p>
+        <Button variant="destructive" size="sm" className="gap-1" onClick={() => setShowDelete(true)}>
+          <Trash2 className="h-4 w-4" />
+          Delete Project
+        </Button>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-            <Badge variant={project.status === 'ACTIVE' ? 'success' : project.status === 'DRAFT' ? 'warning' : 'default'}>
-              {project.status}
-            </Badge>
-          </div>
-          <p className="mt-2 text-sm text-gray-500">Created {createdAt}</p>
-        </div>
-      </div>
-
+      {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card
           className="cursor-pointer hover:shadow-lg transition"
@@ -348,17 +312,21 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             )}
           </CardContent>
         </Card>
-        <Card className="hover:shadow-lg transition cursor-not-allowed opacity-60">
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition"
+          onClick={() => router.push(`/projects/${project.id}/reports`)}
+        >
           <CardHeader>
             <FileText className="mb-2 h-8 w-8 text-purple-600" />
-            <CardTitle className="text-lg text-gray-900">Generate Report</CardTitle>
-            <CardDescription>Coming soon: readiness reports from project context</CardDescription>
+            <CardTitle className="text-lg text-gray-900">View Reports</CardTitle>
+            <CardDescription>Access readiness reports for this project</CardDescription>
           </CardHeader>
         </Card>
       </div>
 
       <ProjectTelemetryPanel projectId={project.id} />
 
+      {/* Plan Scope Configuration */}
       <Card>
         <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -565,14 +533,22 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         </CardContent>
       </Card>
 
+      {/* Specifications */}
       <Card>
-        <CardHeader>
-          <CardTitle>Specifications</CardTitle>
-          <CardDescription>Specs attached to this project</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Specifications</CardTitle>
+            <CardDescription>Specs attached to this project</CardDescription>
+          </div>
+          <Link href={`/projects/${project.id}/specs`}>
+            <Button variant="outline" size="sm">
+              Manage Specs
+            </Button>
+          </Link>
         </CardHeader>
         <CardContent>
           {project.specs.length === 0 ? (
-            <div className="py-8 text-center text-gray-500">No specs yet. Head to the Specs page to import one.</div>
+            <div className="py-8 text-center text-gray-500">No specs yet. Go to the Specs tab to import one.</div>
           ) : (
             <div className="divide-y divide-gray-100">
               {project.specs.map((spec: (typeof project.specs)[number]) => (
@@ -589,6 +565,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         </CardContent>
       </Card>
 
+      {/* Delete Modal */}
       {showDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur">
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/95 p-6 shadow-2xl">
@@ -625,6 +602,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         </div>
       )}
 
+      {/* Import Modal */}
       {showImport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur">
           <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-white/95 p-6 shadow-2xl">
