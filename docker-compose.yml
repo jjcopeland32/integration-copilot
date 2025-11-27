@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   db:
     image: postgres:15-alpine
@@ -12,6 +10,26 @@ services:
       - '5432:5432'
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-integration} -d ${POSTGRES_DB:-integration_copilot}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-integration}:${POSTGRES_PASSWORD:-integration}@db:5432/${POSTGRES_DB:-integration_copilot}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      APP_URL: ${APP_URL:-http://localhost:3000}
 
 volumes:
   db-data:

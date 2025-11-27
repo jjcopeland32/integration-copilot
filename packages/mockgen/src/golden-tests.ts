@@ -3,16 +3,25 @@ import { NormalizedSpec, NormalizedEndpoint } from '@integration-copilot/spec-en
 export interface GoldenTest {
   id: string;
   name: string;
+  type: string;
   description: string;
   category: 'auth' | 'core' | 'edge_case' | 'webhook' | 'error';
   request: {
     method: string;
-    path: string;
+    url: string;
     headers?: Record<string, string>;
     body?: any;
   };
+  /** @deprecated Use expect.status instead */
   expectedStatus: number;
+  /** Expected response body for comparison */
   expectedResponse?: any;
+  /** Standard format for test expectations */
+  expect: {
+    status: number;
+    [key: string]: unknown;
+  };
+  /** Array of assertions to evaluate against the response */
   assertions: Array<{
     type: string;
     field?: string;
@@ -82,44 +91,50 @@ export class GoldenTestGenerator {
 
   private generateAuthTest(spec: NormalizedSpec, baseUrl: string): GoldenTest {
     const endpoint = spec.endpoints[0];
+    const status = 200;
     return {
       id: 'auth_001',
       name: 'Authentication - Valid Credentials',
+      type: 'positive',
       description: 'Verify that valid authentication credentials are accepted',
       category: 'auth',
       request: {
         method: endpoint.method,
-        path: endpoint.path,
+        url: endpoint.path,
         headers: {
           Authorization: 'Bearer test_token_valid',
         },
       },
-      expectedStatus: 200,
+      expectedStatus: status,
+      expect: { status },
       assertions: [
         {
           type: 'status',
           condition: 'equals',
-          value: 200,
+          value: status,
         },
       ],
     };
   }
 
   private generateCreateTest(endpoint: NormalizedEndpoint, baseUrl: string): GoldenTest {
+    const status = endpoint.method === 'POST' ? 201 : 200;
     return {
       id: 'core_001',
       name: 'Create Resource - Success',
+      type: 'positive',
       description: 'Successfully create a new resource',
       category: 'core',
       request: {
         method: endpoint.method,
-        path: endpoint.path,
+        url: endpoint.path,
         headers: {
           'Content-Type': 'application/json',
         },
         body: this.generateSampleBody(endpoint),
       },
-      expectedStatus: endpoint.method === 'POST' ? 201 : 200,
+      expectedStatus: status,
+      expect: { status },
       assertions: [
         {
           type: 'status',
@@ -135,21 +150,24 @@ export class GoldenTestGenerator {
   }
 
   private generateIdempotencyTest(endpoint: NormalizedEndpoint, baseUrl: string): GoldenTest {
+    const status = endpoint.method === 'POST' ? 201 : 200;
     return {
       id: 'edge_001',
       name: 'Idempotency - Duplicate Request',
+      type: 'consistency',
       description: 'Verify that duplicate requests with same idempotency key return same result',
       category: 'edge_case',
       request: {
         method: endpoint.method,
-        path: endpoint.path,
+        url: endpoint.path,
         headers: {
           'Content-Type': 'application/json',
           'Idempotency-Key': 'test_idem_key_001',
         },
         body: this.generateSampleBody(endpoint),
       },
-      expectedStatus: endpoint.method === 'POST' ? 201 : 200,
+      expectedStatus: status,
+      expect: { status },
       assertions: [
         {
           type: 'idempotency',
@@ -160,26 +178,29 @@ export class GoldenTestGenerator {
   }
 
   private generateInvalidInputTest(endpoint: NormalizedEndpoint, baseUrl: string): GoldenTest {
+    const status = 400;
     return {
       id: 'error_001',
       name: 'Invalid Input - Missing Required Fields',
+      type: 'negative',
       description: 'Verify proper error handling for invalid input',
       category: 'error',
       request: {
         method: endpoint.method,
-        path: endpoint.path,
+        url: endpoint.path,
         headers: {
           'Content-Type': 'application/json',
           'x-simulate-invalid': 'missing-body',
         },
         body: {},
       },
-      expectedStatus: 400,
+      expectedStatus: status,
+      expect: { status },
       assertions: [
         {
           type: 'status',
           condition: 'equals',
-          value: 400,
+          value: status,
         },
         {
           type: 'field_exists',
@@ -190,21 +211,24 @@ export class GoldenTestGenerator {
   }
 
   private generateWebhookSignatureTest(spec: NormalizedSpec, baseUrl: string): GoldenTest {
+    const status = 200;
     return {
       id: 'webhook_001',
       name: 'Webhook - Signature Verification',
+      type: 'positive',
       description: 'Verify webhook signature validation',
       category: 'webhook',
       request: {
         method: 'POST',
-        path: '/webhooks/test',
+        url: '/webhooks/test',
         headers: {
           'Content-Type': 'application/json',
           'X-Webhook-Signature': 'sha256=test_signature',
         },
         body: { event: 'test.event', data: {} },
       },
-      expectedStatus: 200,
+      expectedStatus: status,
+      expect: { status },
       assertions: [
         {
           type: 'signature_valid',
@@ -215,19 +239,22 @@ export class GoldenTestGenerator {
 
   private generateRateLimitTest(spec: NormalizedSpec, baseUrl: string): GoldenTest {
     const endpoint = spec.endpoints[0];
+    const status = 429;
     return {
       id: 'edge_002',
       name: 'Rate Limiting - Exceeded',
+      type: 'resilience',
       description: 'Verify rate limit enforcement',
       category: 'edge_case',
       request: {
         method: endpoint.method,
-        path: endpoint.path,
+        url: endpoint.path,
         headers: {
           'x-simulate-rate-limit': 'exceed',
         },
       },
-      expectedStatus: 429,
+      expectedStatus: status,
+      expect: { status },
       assertions: [
         {
           type: 'rate_limit',
@@ -239,19 +266,22 @@ export class GoldenTestGenerator {
   }
 
   private generateTimeoutTest(endpoint: NormalizedEndpoint, baseUrl: string): GoldenTest {
+    const status = 408;
     return {
       id: 'edge_003',
       name: 'Timeout Handling',
+      type: 'resilience',
       description: 'Verify proper timeout handling',
       category: 'edge_case',
       request: {
         method: endpoint.method,
-        path: endpoint.path,
+        url: endpoint.path,
         headers: {
           'X-Simulate-Delay': '5000',
         },
       },
-      expectedStatus: 408,
+      expectedStatus: status,
+      expect: { status },
       assertions: [
         {
           type: 'timeout',
@@ -262,16 +292,19 @@ export class GoldenTestGenerator {
   }
 
   private generateRefundTest(endpoint: NormalizedEndpoint, baseUrl: string): GoldenTest {
+    const status = 200;
     return {
       id: 'core_002',
       name: 'Refund/Reversal - Success',
+      type: 'positive',
       description: 'Successfully process a refund or reversal',
       category: 'core',
       request: {
         method: endpoint.method,
-        path: endpoint.path.replace('{id}', 'test_resource_001'),
+        url: endpoint.path.replace('{id}', 'test_resource_001'),
       },
-      expectedStatus: 200,
+      expectedStatus: status,
+      expect: { status },
       assertions: [
         {
           type: 'status',
@@ -283,19 +316,22 @@ export class GoldenTestGenerator {
   }
 
   private generateRetryTest(endpoint: NormalizedEndpoint, baseUrl: string): GoldenTest {
+    const status = 503;
     return {
       id: 'edge_004',
       name: 'Retry Logic - Transient Failure',
+      type: 'resilience',
       description: 'Verify retry behavior on transient failures',
       category: 'edge_case',
       request: {
         method: endpoint.method,
-        path: endpoint.path,
+        url: endpoint.path,
         headers: {
           'X-Simulate-Error': '503',
         },
       },
-      expectedStatus: 503,
+      expectedStatus: status,
+      expect: { status },
       assertions: [
         {
           type: 'retry',
@@ -307,25 +343,28 @@ export class GoldenTestGenerator {
   }
 
   private generateInvalidParameterTest(endpoint: NormalizedEndpoint, baseUrl: string): GoldenTest {
+    const status = 400;
     return {
       id: 'error_002',
       name: 'Invalid Parameter - Unsupported Currency',
+      type: 'negative',
       description: 'Verify error handling for invalid parameters',
       category: 'error',
       request: {
         method: endpoint.method,
-        path: endpoint.path,
+        url: endpoint.path,
         body: {
           currency: 'INVALID',
           amount: 1000,
         },
       },
-      expectedStatus: 400,
+      expectedStatus: status,
+      expect: { status },
       assertions: [
         {
           type: 'status',
           condition: 'equals',
-          value: 400,
+          value: status,
         },
         {
           type: 'error_message',

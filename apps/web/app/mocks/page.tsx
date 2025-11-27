@@ -42,6 +42,11 @@ export default function MocksPage() {
       await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
     },
   });
+  const checkAllMutation = trpc.mock.checkAll.useMutation({
+    onSuccess: async () => {
+      await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
+    },
+  });
 
   const mocks = useMemo(() => mocksQuery.data ?? [], [mocksQuery.data]);
   const isLoading = mocksQuery.isLoading;
@@ -105,13 +110,12 @@ export default function MocksPage() {
             className="ml-auto"
             onClick={async () => {
               setCheckingAll(true);
-              await trpc.mock.checkAll.mutateAsync({ projectId: projectId ?? undefined }).catch(() => {});
-              await utils.mock.list.invalidate(projectId ? { projectId } : undefined);
+              await checkAllMutation.mutateAsync({ projectId: projectId ?? undefined }).catch(() => {});
               setCheckingAll(false);
             }}
-            disabled={checkingAll}
+            disabled={checkingAll || checkAllMutation.isPending}
           >
-            {checkingAll ? 'Checking…' : 'Check all'}
+            {checkingAll || checkAllMutation.isPending ? 'Checking…' : 'Check all'}
           </Button>
         </div>
       </div>

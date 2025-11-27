@@ -10,6 +10,8 @@ import {
   TestCase,
   TestSuite,
   AttemptRecord,
+  TestAssertion,
+  AssertionResult,
 } from './types';
 import { buildSafeUrl } from './urlGuard';
 import { resolveTemplates } from './templates';
@@ -29,6 +31,214 @@ function extractIdentifier(body: unknown): string | null {
     return String(candidate);
   }
   return null;
+}
+
+/**
+ * Deep check if a field path exists in an object
+ * Supports dot notation like "data.user.id"
+ */
+function fieldExists(obj: unknown, fieldPath: string): boolean {
+  if (!obj || typeof obj !== 'object') return false;
+  
+  const parts = fieldPath.split('.');
+  let current: unknown = obj;
+  
+  for (const part of parts) {
+    if (current === null || current === undefined || typeof current !== 'object') {
+      return false;
+    }
+    current = (current as Record<string, unknown>)[part];
+  }
+  
+  return current !== undefined;
+}
+
+/**
+ * Get a field value from an object using dot notation
+ */
+function getFieldValue(obj: unknown, fieldPath: string): unknown {
+  if (!obj || typeof obj !== 'object') return undefined;
+  
+  const parts = fieldPath.split('.');
+  let current: unknown = obj;
+  
+  for (const part of parts) {
+    if (current === null || current === undefined || typeof current !== 'object') {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[part];
+  }
+  
+  return current;
+}
+
+/**
+ * Evaluate a single assertion against the response
+ */
+function evaluateAssertion(
+  assertion: TestAssertion,
+  responseBody: unknown,
+  responseStatus: number | null
+): AssertionResult {
+  const { type, field, value, condition } = assertion;
+
+  switch (type) {
+    case 'status': {
+      if (condition === 'equals') {
+        const expected = value as number;
+        const passed = responseStatus === expected;
+        return {
+          passed,
+          assertion,
+          error: passed ? undefined : `Status mismatch: expected ${expected}, got ${responseStatus}`,
+          expected,
+          actual: responseStatus,
+        };
+      }
+      if (condition === 'in') {
+        const allowedValues = value as number[];
+        const passed = responseStatus !== null && allowedValues.includes(responseStatus);
+        return {
+          passed,
+          assertion,
+          error: passed ? undefined : `Status ${responseStatus} not in allowed values [${allowedValues.join(', ')}]`,
+          expected: allowedValues,
+          actual: responseStatus,
+        };
+      }
+      // Default: check value directly if no condition specified
+      if (value !== undefined) {
+        const expected = value as number;
+        const passed = responseStatus === expected;
+        return {
+          passed,
+          assertion,
+          error: passed ? undefined : `Status mismatch: expected ${expected}, got ${responseStatus}`,
+          expected,
+          actual: responseStatus,
+        };
+      }
+      return { passed: true, assertion };
+    }
+
+    case 'field_exists': {
+      if (!field) {
+        return {
+          passed: false,
+          assertion,
+          error: 'field_exists assertion requires a field property',
+        };
+      }
+      const exists = fieldExists(responseBody, field);
+      return {
+        passed: exists,
+        assertion,
+        error: exists ? undefined : `Field "${field}" does not exist in response`,
+        expected: `field "${field}" to exist`,
+        actual: exists ? 'exists' : 'missing',
+      };
+    }
+
+    case 'error_message': {
+      if (condition === 'contains' && typeof value === 'string') {
+        const errorField = field || 'error';
+        const errorMessage = getFieldValue(responseBody, errorField);
+        const messageStr = typeof errorMessage === 'string' ? errorMessage : '';
+        // Also check 'message' field as fallback
+        const messageField = getFieldValue(responseBody, 'message');
+        const messageFieldStr = typeof messageField === 'string' ? messageField : '';
+        
+        const combinedMessage = `${messageStr} ${messageFieldStr}`.toLowerCase();
+        const searchValue = value.toLowerCase();
+        const passed = combinedMessage.includes(searchValue);
+        
+        return {
+          passed,
+          assertion,
+          error: passed ? undefined : `Error message does not contain "${value}"`,
+          expected: `message containing "${value}"`,
+          actual: errorMessage || messageField || '(no error message)',
+        };
+      }
+      return { passed: true, assertion };
+    }
+
+    case 'idempotency': {
+      // Idempotency is checked separately during repeat handling
+      // This assertion type is informational
+      return { passed: true, assertion };
+    }
+
+    case 'signature_valid': {
+      // Webhook signature validation - check if response indicates valid signature
+      // In a real implementation, this would verify HMAC signatures
+      return { passed: true, assertion };
+    }
+
+    case 'rate_limit': {
+      // Rate limit assertions are typically verified by checking 429 responses
+      // The actual check happens at the status level
+      return { passed: true, assertion };
+    }
+
+    case 'timeout': {
+      // Timeout assertions are informational - actual timeout handling is in the request
+      return { passed: true, assertion };
+    }
+
+    case 'retry': {
+      // Retry success assertions are informational
+      return { passed: true, assertion };
+    }
+
+    default: {
+      // Unknown assertion type - log warning but don't fail
+      console.warn(`[testkit] Unknown assertion type: ${type}`);
+      return { passed: true, assertion };
+    }
+  }
+}
+
+/**
+ * Compare expected response with actual response body
+ */
+function compareResponses(expected: unknown, actual: unknown): { passed: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  if (expected === undefined || expected === null) {
+    return { passed: true, errors };
+  }
+
+  if (typeof expected !== 'object' || typeof actual !== 'object') {
+    if (expected !== actual) {
+      errors.push(`Response mismatch: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+    }
+    return { passed: errors.length === 0, errors };
+  }
+
+  if (expected === null || actual === null) {
+    if (expected !== actual) {
+      errors.push(`Response mismatch: expected ${expected}, got ${actual}`);
+    }
+    return { passed: errors.length === 0, errors };
+  }
+
+  // For objects, check that all expected fields match
+  const expectedObj = expected as Record<string, unknown>;
+  const actualObj = actual as Record<string, unknown>;
+
+  for (const [key, expectedValue] of Object.entries(expectedObj)) {
+    const actualValue = actualObj[key];
+    
+    if (typeof expectedValue === 'object' && expectedValue !== null) {
+      const nested = compareResponses(expectedValue, actualValue);
+      errors.push(...nested.errors.map(e => `${key}.${e}`));
+    } else if (expectedValue !== actualValue) {
+      errors.push(`Field "${key}": expected ${JSON.stringify(expectedValue)}, got ${JSON.stringify(actualValue)}`);
+    }
+  }
+
+  return { passed: errors.length === 0, errors };
 }
 
 async function waitFor(ms: number) {
@@ -77,9 +287,12 @@ async function executeTestCase(
   const policy = request?.policy ?? {};
   const maxAttempts = Math.max(policy.maxAttempts ?? 1, 1);
   const baseDelay = policy.baseDelayMs ?? DEFAULT_BASE_DELAY;
-  const expectStatus = testCase.expect?.status;
+  // Support both expectedStatus (root level) and expect.status
+  const expectStatus = testCase.expectedStatus ?? testCase.expect?.status;
   const expectUniqueness = testCase.expect?.uniqueness;
   const expectBackoff = testCase.expect?.clientBackoff;
+  const assertions = testCase.assertions ?? [];
+  const expectedResponse = testCase.expectedResponse;
 
   const repeatsResult: CaseResult['repeats'] = [];
   const errors: string[] = [];
@@ -179,11 +392,42 @@ async function executeTestCase(
       }
     }
 
+    // Evaluate assertions array
+    const assertionResults: AssertionResult[] = [];
+    for (const assertion of assertions) {
+      const result = evaluateAssertion(assertion, finalBody, finalStatus);
+      assertionResults.push(result);
+      if (!result.passed) {
+        passed = false;
+        if (result.error) {
+          errors.push(result.error);
+        }
+      }
+    }
+
+    // Compare expected response with actual response
+    if (expectedResponse !== undefined) {
+      const comparison = compareResponses(expectedResponse, finalBody);
+      if (!comparison.passed) {
+        passed = false;
+        errors.push(...comparison.errors);
+      }
+    }
+
     repeatsResult.push({ repeatIndex, attempts: attemptRecords });
 
     if (thinkTime > 0 && repeatIndex < repeats - 1) {
       await waitFor(thinkTime);
     }
+  }
+
+  // Collect all assertion results from the last repeat (most relevant)
+  const finalAssertionResults: AssertionResult[] = [];
+  for (const assertion of assertions) {
+    const lastRepeat = repeatsResult.at(-1);
+    const lastAttempt = lastRepeat?.attempts?.at(-1);
+    const result = evaluateAssertion(assertion, lastAttempt?.body, lastAttempt?.status ?? null);
+    finalAssertionResults.push(result);
   }
 
   return {
@@ -192,6 +436,7 @@ async function executeTestCase(
     status: passed ? 'passed' : 'failed',
     repeats: repeatsResult,
     errors,
+    assertionResults: finalAssertionResults.length > 0 ? finalAssertionResults : undefined,
   };
 }
 

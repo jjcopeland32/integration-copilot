@@ -27,8 +27,8 @@ export function PartnerNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="space-y-1">
-      {links.map(({ label, href, icon: Icon }) => {
+    <nav className="space-y-2">
+      {links.map(({ label, href, icon: Icon }, index) => {
         const isRoot = href === '/partner';
         const active = isRoot
           ? pathname === '/partner'
@@ -39,14 +39,36 @@ export function PartnerNav() {
             key={href}
             href={href}
             className={cn(
-              'flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-200 border border-transparent',
-              active
-                ? 'bg-gradient-to-r from-blue-600/80 to-purple-600/80 text-white shadow-lg border-white/10'
-                : 'text-slate-300 hover:text-white hover:bg-white/5'
+              'crystal-nav-item group flex items-center gap-3 text-sm font-medium',
+              'animate-slide-in',
+              active && 'active'
             )}
+            style={{ animationDelay: `${index * 50}ms` }}
           >
-            <Icon className="h-4 w-4" />
-            <span>{label}</span>
+            <div
+              className={cn(
+                'flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-300',
+                active
+                  ? 'bg-gradient-to-br from-cyan-500/30 to-purple-500/30 shadow-lg shadow-cyan-500/20'
+                  : 'bg-white/5 group-hover:bg-cyan-500/10'
+              )}
+            >
+              <Icon
+                className={cn(
+                  'h-4 w-4 transition-colors duration-300',
+                  active ? 'text-cyan-300' : 'text-slate-400 group-hover:text-cyan-400'
+                )}
+              />
+            </div>
+            <span className="relative">
+              {label}
+              {active && (
+                <span className="absolute -bottom-1 left-0 h-px w-full bg-gradient-to-r from-cyan-400/50 to-transparent" />
+              )}
+            </span>
+            {active && (
+              <div className="ml-auto h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-lg shadow-cyan-400/50 animate-pulse-soft" />
+            )}
           </Link>
         );
       })}

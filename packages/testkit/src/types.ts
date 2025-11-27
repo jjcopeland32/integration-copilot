@@ -23,12 +23,33 @@ export interface TestExpectations {
   [key: string]: unknown;
 }
 
+export interface TestAssertion {
+  type: 'status' | 'field_exists' | 'error_message' | 'idempotency' | 'signature_valid' | 'rate_limit' | 'timeout' | 'retry' | string;
+  field?: string;
+  value?: unknown;
+  condition?: 'equals' | 'in' | 'contains' | 'same_response_on_retry' | 'exceeded_after_n_requests' | 'success_after_n_retries' | string;
+}
+
+export interface AssertionResult {
+  passed: boolean;
+  assertion: TestAssertion;
+  error?: string;
+  expected?: unknown;
+  actual?: unknown;
+}
+
 export interface TestCase {
   id: string;
   name: string;
   type: string;
   request?: TestRequest;
   expect?: TestExpectations;
+  /** Alternative location for expected status (used by GoldenTestGenerator) */
+  expectedStatus?: number;
+  /** Expected response body for comparison */
+  expectedResponse?: unknown;
+  /** Array of assertions to evaluate against the response */
+  assertions?: TestAssertion[];
 }
 
 export interface TestSuite {
@@ -55,6 +76,8 @@ export interface CaseResult {
   status: 'passed' | 'failed';
   repeats: RepeatRecord[];
   errors: string[];
+  /** Detailed assertion results for debugging */
+  assertionResults?: AssertionResult[];
 }
 
 export interface SuiteRunResult {

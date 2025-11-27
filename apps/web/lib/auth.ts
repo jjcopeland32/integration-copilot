@@ -101,8 +101,8 @@ async function authorizeUser(
   }
 
   // Prefer the first membership; if none, create one
-  const membership =
-    user.memberships[0] || (await ensureUserMembership(user.id, user.memberships[0]?.orgId));
+  const existingMembership = user.memberships?.[0];
+  const membership = existingMembership || (await ensureUserMembership(user.id, undefined));
 
   return {
     id: user.id,
@@ -128,7 +128,7 @@ async function authorizeDemo(email: string, password: string): Promise<AuthUser 
     email: workspace.user.email,
     name: workspace.user.name,
     orgId: workspace.org.id,
-    role: workspace.user.memberships?.[0]?.role ?? demoDefaults.role,
+    role: demoDefaults.role,
   } as AuthUser;
 }
 
