@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus, FileCode, Server, TestTube, TrendingUp, Loader2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
@@ -124,17 +123,12 @@ function ProjectGrid({
                     <p className="text-lg font-semibold text-gray-900">{testsCount}</p>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <Button
-                    className="flex-1"
-                    onClick={() => onSelectProject({ id: project.id, name: project.name })}
-                  >
-                    Open Workspace
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Link href={`/projects/${project.id}`}>Details</Link>
-                  </Button>
-                </div>
+                <Button
+                  className="w-full"
+                  onClick={() => onSelectProject({ id: project.id, name: project.name })}
+                >
+                  Open Project
+                </Button>
               </CardContent>
             </Card>
         );
@@ -157,7 +151,7 @@ export default function ProjectsPage() {
     onSuccess: async (created) => {
       await utils.project.list.invalidate();
       setActiveProject({ id: created.id, name: created.name });
-      router.push('/dashboard');
+      router.push(`/projects/${created.id}`);
       setProjectName('New Integration Project');
       setProjectDescription('Describe the integration goals, vendor, or scope.');
       setProjectStatus('DRAFT');
@@ -215,7 +209,7 @@ export default function ProjectsPage() {
           projects={projects}
           onSelectProject={(project) => {
             setActiveProject(project);
-            router.push('/dashboard');
+            router.push(`/projects/${project.id}`);
           }}
         />
       )}
