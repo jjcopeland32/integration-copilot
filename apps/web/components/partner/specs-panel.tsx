@@ -116,7 +116,7 @@ export function PartnerSpecsPanel() {
           specName,
         });
       } else {
-        setStatus('Blueprint not available yet. Contact SYF to generate one.');
+        setStatus('Blueprint not available yet. Contact your integration manager to generate one.');
       }
     } catch {
       setStatus('Failed to load blueprint.');
@@ -145,7 +145,7 @@ export function PartnerSpecsPanel() {
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-cyan-400/80 font-medium">Blueprints</p>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-cyan-100 to-purple-200 bg-clip-text text-transparent">
-            Specs shared by SYF
+            Shared Specs
           </h1>
           <p className="text-sm text-slate-400 mt-1">
             Review and acknowledge each version before deploying to sandbox.
@@ -171,7 +171,7 @@ export function PartnerSpecsPanel() {
           <div>
             <h2 className="text-xl font-semibold text-white">Submit Updated Spec</h2>
             <p className="text-sm text-slate-400">
-              Paste your latest OpenAPI document (JSON or YAML). We&apos;ll normalize it and notify SYF.
+              Paste your latest OpenAPI document (JSON or YAML). We&apos;ll normalize it and notify your integration team.
             </p>
           </div>
         </div>
@@ -258,7 +258,7 @@ export function PartnerSpecsPanel() {
       {specs.length === 0 ? (
         <div className="glass-crystal-card rounded-3xl border-dashed p-10 text-center animate-in stagger-2">
           <FileText className="mx-auto h-10 w-10 text-cyan-400/40 mb-3" />
-          <p className="text-slate-400">No specs shared yet. Your SYF contact will send an invite when the blueprint is ready.</p>
+          <p className="text-slate-400">No specs shared yet. Your integration manager will send an invite when the blueprint is ready.</p>
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -289,7 +289,7 @@ export function PartnerSpecsPanel() {
                 ) : (
                   <span className="badge-success-crystal flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />
-                    SYF canonical
+                    Canonical
                   </span>
                 )}
               </div>

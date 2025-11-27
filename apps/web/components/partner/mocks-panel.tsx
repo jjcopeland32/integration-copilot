@@ -34,7 +34,7 @@ export function PartnerMocksPanel() {
             Mock Servers
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            These mock instances mirror SYF&apos;s reference implementation for testing flows.
+            These mock instances mirror the reference implementation for testing flows.
           </p>
         </div>
         <div className="flex gap-3">
@@ -83,7 +83,7 @@ export function PartnerMocksPanel() {
       {mocks.length === 0 ? (
         <div className="glass-crystal-card rounded-3xl border-dashed p-10 text-center animate-in stagger-2">
           <Server className="mx-auto h-10 w-10 text-emerald-400/40 mb-3" />
-          <p className="text-slate-400">No mock servers yet. Ask your SYF pod to generate mocks from the Specs page.</p>
+          <p className="text-slate-400">No mock servers yet. Ask your integration team to generate mocks from the Specs page.</p>
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">

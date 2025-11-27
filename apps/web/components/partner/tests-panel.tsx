@@ -242,7 +242,7 @@ export function PartnerTestsPanel() {
           Golden Test Suites
         </h1>
         <p className="text-sm text-slate-400 mt-1">
-          SYF generates these cases to validate required behaviors and failure handling.
+          These cases validate required behaviors and failure handling per the integration blueprint.
         </p>
       </div>
 
@@ -264,7 +264,7 @@ export function PartnerTestsPanel() {
       {suites.length === 0 ? (
         <div className="glass-crystal-card rounded-3xl border-dashed p-10 text-center animate-in stagger-1">
           <FlaskConical className="mx-auto h-10 w-10 text-purple-400/40 mb-3" />
-          <p className="text-slate-400">No suites available yet. Once SYF generates tests, they will appear here with logs.</p>
+          <p className="text-slate-400">No suites available yet. Once tests are generated, they will appear here with logs.</p>
         </div>
       ) : (
         <div className="space-y-6">
