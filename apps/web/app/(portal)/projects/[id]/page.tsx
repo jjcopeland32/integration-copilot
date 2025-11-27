@@ -8,7 +8,7 @@ import { trpc } from '@/lib/trpc/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UI_PLAN_PHASES, type UIPhaseKey } from '@/data/plan-phases';
 import { ProjectTelemetryPanel } from '@/components/projects/telemetry-panel';
 
@@ -78,8 +78,8 @@ export default function ProjectOverviewPage() {
     },
   });
 
-  // Initialize phase config from project data
-  useState(() => {
+  // Synchronize phase config from project data when it loads or changes
+  useEffect(() => {
     if (!project?.phaseConfig) {
       setPhaseConfig(null);
       return;
@@ -96,7 +96,7 @@ export default function ProjectOverviewPage() {
       };
     }
     setPhaseConfig(nextState);
-  });
+  }, [project?.phaseConfig]);
 
   if (projectQuery.isLoading || !project) {
     return null; // Layout handles loading state
