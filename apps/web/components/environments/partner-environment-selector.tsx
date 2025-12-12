@@ -112,7 +112,7 @@ export function PartnerEnvironmentSelector({
       };
     }
     if (selectedEnv) {
-      const config = ENV_TYPE_CONFIG[selectedEnv.type];
+      const config = ENV_TYPE_CONFIG[selectedEnv.type as EnvironmentType];
       return {
         name: selectedEnv.name,
         icon: config.icon,
@@ -196,7 +196,7 @@ export function PartnerEnvironmentSelector({
 
           {/* Environment Options */}
           {environments.map((env) => {
-            const config = ENV_TYPE_CONFIG[env.type];
+            const config = ENV_TYPE_CONFIG[env.type as EnvironmentType];
             const EnvIcon = config.icon;
             const isSelected = selectedId === env.id;
 

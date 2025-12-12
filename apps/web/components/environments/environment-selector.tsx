@@ -119,7 +119,7 @@ export function EnvironmentSelector({
       };
     }
     if (selectedEnv) {
-      const config = ENV_TYPE_CONFIG[selectedEnv.type];
+      const config = ENV_TYPE_CONFIG[selectedEnv.type as EnvironmentType];
       return {
         name: selectedEnv.name,
         icon: config.icon,
@@ -171,7 +171,7 @@ export function EnvironmentSelector({
               </button>
             )}
             {environments.filter((e) => e.isActive).map((env) => {
-              const config = ENV_TYPE_CONFIG[env.type];
+              const config = ENV_TYPE_CONFIG[env.type as EnvironmentType];
               const isSelected = selectedId === env.id;
               return (
                 <button
@@ -266,7 +266,7 @@ export function EnvironmentSelector({
           {environments
             .filter((e) => e.isActive)
             .map((env) => {
-              const config = ENV_TYPE_CONFIG[env.type];
+              const config = ENV_TYPE_CONFIG[env.type as EnvironmentType];
               const EnvIcon = config.icon;
               const isSelected = selectedId === env.id;
 

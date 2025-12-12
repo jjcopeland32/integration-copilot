@@ -215,7 +215,8 @@ export default function EnvironmentsPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {environments.map((env, index) => {
-            const config = ENV_TYPE_CONFIG[env.type];
+            const envType = env.type as EnvironmentType;
+            const config = ENV_TYPE_CONFIG[envType];
             const Icon = config.icon;
             const isConfirmingDelete = confirmingDeleteId === env.id;
             const isTestingConnection = testingConnectionId === env.id;
@@ -257,7 +258,7 @@ export default function EnvironmentsPage() {
                     <span className="text-gray-500">Authentication</span>
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-700">
-                        {AUTH_TYPE_LABELS[env.authType]}
+                        {AUTH_TYPE_LABELS[env.authType as AuthType]}
                       </span>
                       {env.hasCredentials && (
                         <Badge variant="outline" className="text-xs">
