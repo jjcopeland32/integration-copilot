@@ -1,150 +1,300 @@
-# Integration Copilot – Tracked Issues & File Pointers
+# Integration Copilot – Issue Tracker
 
-This list captures remaining work items for MVP-ready E2E coverage. Each bullet links to relevant code or docs to modify.
+**Last Updated:** December 2025
 
----
-
-## ✅ Completed Items
-
-### Navigation & Structure (Completed Nov 27, 2025)
-- [x] **Project-centric navigation** – All features now nested under `/projects/[id]/*` with tabbed interface
-- [x] **Route restructure** – Moved specs, mocks, tests, traces, plan, reports under project detail
-- [x] **Sidebar cleanup** – Removed project-scoped items from sidebar, now shows only Projects
-- [x] **Tab navigation** – Horizontal tabs in project layout (`apps/web/app/(portal)/projects/[id]/layout.tsx`)
-- [x] **Middleware updates** – Updated protected patterns for new route structure (`apps/web/middleware.ts`)
-- [x] **Documentation** – Updated README, TESTING_GUIDE, UI_COMPLETE, PROJECT_SUMMARY
-
-### Security (Completed Previously)
-- [x] **tRPC protected procedures** – All routers use `protectedProcedure` with org scoping
-- [x] **Middleware authentication** – Route protection for client and partner portals
-- [x] **Org-scoped queries** – All data queries include `orgId` filter
-- [x] **Partner token validation** – Partner portal uses invite tokens with expiration
-
-### Themes (Completed Previously)
-- [x] **Enterprise Glass theme** – Client portal with light mesh gradient, floating orbs
-- [x] **Crystal Ice theme** – Partner portal with dark aurora, floating particles
-- [x] **Glassmorphism components** – Card, Badge, Button variants
+This is the **authoritative list** of remaining work items. All TODO.md and future-enhancements.md content has been consolidated here.
 
 ---
 
-## 🔄 In Progress / Remaining
+## ✅ Completed
 
-## 1) Auth & RBAC
-- Prisma-backed credentials auth is implemented (`apps/web/lib/auth.ts`); demo login works.
-- **Remaining:**
-  - Org/user management UI and APIs
-  - Multi-org selection flow
-  - Optional OAuth providers (GitHub, Google)
-  - Role assignment UI
+### Navigation & Structure (Nov 2025)
+- [x] Project-centric navigation – All features nested under `/projects/[id]/*`
+- [x] Tabbed layout for project detail pages
+- [x] Sidebar cleanup – Only shows Projects
+- [x] Middleware updates for new route structure
+- [x] Documentation updates
 
-## 2) Mock Lifecycle & Cleanup
-- Health checks implemented with endpoint + UI trigger.
-- **Remaining:**
-  - Retention cleanup for stale mocks/ports
-  - Bulk delete/reset controls
-  - Auto-restart on health check failure
+### Security (Previously Completed)
+- [x] tRPC protected procedures with org scoping
+- [x] Middleware authentication for client and partner portals
+- [x] Org-scoped queries on all data access
+- [x] Partner token validation with expiration
 
-**Files:** `apps/web/lib/trpc/routers/mock.ts`, `apps/web/app/(portal)/projects/[id]/mocks/page.tsx`
-
-## 3) Golden Test Insights & Artifacts
-- Suite-level results displayed in Tests tab.
-- **Remaining:**
-  - Per-case result details in UI
-  - Artifact viewer for `.artifacts/testruns`
-  - Link failing cases to plan items/reports
-
-**Files:** `apps/web/app/(portal)/projects/[id]/tests/page.tsx`, `apps/web/lib/tests/golden-runner.ts`
-
-## 4) Plan Board & Scope Configuration
-- 5-phase board auto-seeded per project.
-- **Remaining:**
-  - Phase enable/disable UI
-  - UAT scenarios configuration
-  - Performance benchmarks persistence
-  - Evidence upload/view flows
-
-**Files:** `apps/web/app/(portal)/projects/[id]/plan/page.tsx`, `packages/orchestrator/src/plan-board.ts`
-
-## 5) Telemetry & Validator
-- Trace storage implemented with HMAC verification.
-- **Remaining:**
-  - Real HMAC signing in validator middleware
-  - Rate limiting on sensitive API routes
-  - Trace→plan/report linkage in UI
-
-**Files:** `packages/validator/src/middleware/express.ts`, `apps/web/app/(portal)/projects/[id]/traces/page.tsx`
-
-## 6) AI Assistant & Partner Experience
-- Partner portal with Crystal Ice theme.
-- **Remaining:**
-  - Wire PartnerAssistant to real summary endpoint
-  - Validate partner flows update core models with RBAC
-
-**Files:** `apps/web/components/partner/assistant-panel.tsx`
-
-## 7) Integrations (Slack/Jira)
-- Connector packages implemented.
-- **Remaining:**
-  - Invoke connectors on test failures
-  - Phase completion notifications
-  - Report creation hooks
-  - Feature flag toggles
-
-**Files:** `packages/connectors/src/*`, `apps/web/lib/config.ts`
-
-## 8) Security & Rate Limiting
-- RBAC and org scoping in place.
-- **Remaining:**
-  - Rate limiting on `/api/tests/run`, `/api/trace`
-  - Webhook endpoint hardening
-
-**Files:** `apps/web/app/api/*`, `apps/web/lib/config.ts`
-
-## 9) Testing & CI
-- Build and TypeScript checks pass.
-- **Remaining:**
-  - Playwright/Cypress E2E flows
-  - Test project-centric navigation
-  - Docker image testing in CI
-
-**Files:** `.github/workflows/*`
-
-## 10) Documentation & Templates
-- Core docs updated for project-centric navigation.
-- **Remaining:**
-  - Keep `.env` guidance aligned
-  - Document feature flags
-  - CI Docker workflow permissions
-
-**Files:** `README.md`, `DEPLOYMENT.md`, `.github/workflows/docker.yml`
+### Core Features (Previously Completed)
+- [x] Spec import and normalization
+- [x] Mock server generation and auto-start
+- [x] Golden test suite generation (10 categories, 38 tests)
+- [x] Trace storage with HMAC verification
+- [x] Plan board with 5 phases
+- [x] Readiness report generation
 
 ---
 
-## File Structure Reference
+## 🔴 P0 - Critical for GTM
 
-### New Project-Centric Routes
+### Environment Configuration
+**Status:** Not started  
+**Impact:** Without this, partners can't test against real vendor systems
 
+- [ ] Add `Environment` model to Prisma schema
+- [ ] Support Mock / Sandbox / UAT environment types
+- [ ] Environment switcher in test runner UI
+- [ ] Store environment credentials securely
+- [ ] Update test execution to use selected environment
+
+**Files:**
+- `prisma/schema.prisma`
+- `apps/web/lib/trpc/routers/mock.ts`
+- `apps/web/app/(portal)/projects/[id]/tests/page.tsx`
+- `packages/testkit/src/runner.ts`
+
+### Per-API Test Profiles
+**Status:** Not started  
+**Impact:** Without this, reports show irrelevant failures (idempotency on read-only APIs)
+
+- [ ] Add `TestProfile` model linking API groups to test categories
+- [ ] Auto-detect capabilities from spec (pagination params, idempotency headers)
+- [ ] UI for vendor to mark categories as Required / Optional / N/A
+- [ ] Filter test execution by applicable categories
+- [ ] Update reports to show only relevant results
+
+**Files:**
+- `prisma/schema.prisma`
+- `packages/spec-engine/src/normalizer.ts` (capability detection)
+- `apps/web/app/(portal)/projects/[id]/specs/page.tsx` (profile UI)
+- `packages/testkit/src/runner.ts`
+- `packages/orchestrator/src/reports.ts`
+
+---
+
+## 🟠 P1 - High Impact
+
+### Partner Playground
+**Status:** Not started  
+**Impact:** Key differentiator for partner self-service
+
+- [ ] Create `/partner/playground` route
+- [ ] Endpoint selector from loaded specs
+- [ ] Editable JSON body and headers
+- [ ] Environment selector (Mock / Sandbox)
+- [ ] Send request and display response
+- [ ] Inline spec validation with error highlighting
+- [ ] Save request as template
+
+**Files:**
+- `apps/web/app/partner/playground/page.tsx` (new)
+- `packages/validator/src/validator.ts`
+
+### AI Assistant
+**Status:** Stub exists  
+**Impact:** Replaces Zoom calls for partner debugging
+
+- [ ] Wire `PartnerAssistant` component to real endpoint
+- [ ] Build context service (gather latest tests/traces/plan status)
+- [ ] Create prompt templates ("Troubleshoot failure", "What's next?")
+- [ ] Rate limiting and usage logging
+- [ ] Surface relevant blueprint annotations in responses
+
+**Files:**
+- `apps/web/components/partner/assistant-panel.tsx`
+- `apps/web/lib/trpc/partner/routers/ai.ts` (new)
+- `apps/web/lib/ai/context-builder.ts` (new)
+
+### Blueprint Annotations
+**Status:** Not started  
+**Impact:** Captures tribal knowledge that reduces support burden
+
+- [ ] Add `Annotation` model to Prisma
+- [ ] Annotation types: `auth_note`, `field_note`, `error_note`, `condition_note`
+- [ ] Vendor UI to add/edit annotations per endpoint/field
+- [ ] Surface annotations in partner playground (inline hints)
+- [ ] Include annotations in AI assistant context
+- [ ] Export annotations in blueprint markdown
+
+**Files:**
+- `prisma/schema.prisma`
+- `apps/web/app/(portal)/projects/[id]/specs/page.tsx`
+- `packages/spec-engine/src/blueprint.ts`
+
+### Parameterized Test Templates
+**Status:** Not started  
+**Impact:** Bridges vendor control with partner flexibility
+
+- [ ] Template syntax: `{{ variable_name }}`
+- [ ] Partner config UI for providing values
+- [ ] Substitute values at test runtime
+- [ ] Store partner config in `PartnerProject`
+
+**Files:**
+- `packages/testkit/src/runner.ts`
+- `apps/web/app/partner/tests/page.tsx`
+- `prisma/schema.prisma` (PartnerProject.testConfig)
+
+---
+
+## 🟡 P2 - Important
+
+### Auth & RBAC Improvements
+**Status:** Partially implemented  
+**Impact:** Required for multi-tenant production
+
+- [ ] OAuth providers (GitHub, Google)
+- [ ] Multi-org selection flow
+- [ ] User invite workflows with email
+- [ ] Role assignment UI in project settings
+- [ ] Org/user management admin pages
+
+**Files:**
+- `apps/web/lib/auth.ts`
+- `apps/web/app/(portal)/settings/` (new)
+
+### Mock Lifecycle & Cleanup
+**Status:** Partially implemented  
+**Impact:** Prevents resource leaks in production
+
+- [ ] Health check cron with auto-restart
+- [ ] Retention policy for stale mocks
+- [ ] Bulk delete/reset controls
+- [ ] Port pooling and reuse
+- [ ] Health indicators on Mocks tab
+
+**Files:**
+- `apps/web/lib/mock-server-manager.ts`
+- `apps/web/app/(portal)/projects/[id]/mocks/page.tsx`
+- `apps/web/app/api/cron/mock-health/route.ts` (new)
+
+### Golden Test Insights
+**Status:** Suite-level only  
+**Impact:** Partners need per-case details to debug
+
+- [ ] Per-case result display in Tests tab
+- [ ] Artifact viewer for `.artifacts/testruns`
+- [ ] Download links for failure logs
+- [ ] Link failing cases to plan items
+- [ ] Test run history with diffs
+
+**Files:**
+- `apps/web/app/(portal)/projects/[id]/tests/page.tsx`
+- `apps/web/lib/tests/golden-runner.ts`
+
+### Slack/Jira Integration
+**Status:** Package implemented, not wired  
+**Impact:** Alerts vendors when partners get stuck
+
+- [ ] Invoke Slack on test failures
+- [ ] Invoke Slack on phase completion
+- [ ] Create Jira issues from failures
+- [ ] Feature flag toggles in project settings
+- [ ] Webhook URL configuration UI
+
+**Files:**
+- `packages/connectors/src/slack.ts`
+- `packages/connectors/src/jira.ts`
+- `apps/web/app/(portal)/projects/[id]/settings/` (new)
+
+---
+
+## 🟢 P3 - Nice to Have
+
+### Spec Automation
+- [ ] Accept webhook-delivered OpenAPI updates
+- [ ] Auto-refresh mocks/tests on spec change
+- [ ] Drift detection between spec versions
+- [ ] Changelog generation
+
+### Failure Pattern Analytics
+- [ ] Aggregate failures across partners
+- [ ] Surface patterns to vendor: "12 partners failed X"
+- [ ] Suggest annotations based on common failures
+
+### Advanced Reporting
+- [ ] PDF export with styling
+- [ ] Scheduled report generation
+- [ ] Report comparison over time
+- [ ] Executive summary dashboard
+
+### E2E Testing
+- [ ] Playwright test framework setup
+- [ ] Core user journey tests
+- [ ] CI integration with Docker
+- [ ] Visual regression testing
+
+---
+
+## Future Enhancements (Post-MVP)
+
+### Per-Partner Data Isolation
+Currently all partners in a project see the same data. Future enhancement could add visibility controls:
+- Spec visibility per partner project
+- Mock/test scoping per partner
+- Evidence is already partner-scoped
+
+**Implementation:** Add `visibleToPartnerProjects` relations on Spec, MockInstance, TestSuite.
+
+### Custom Test Builder
+Allow vendors to create custom test cases beyond the 10 golden categories:
+- Visual test builder UI
+- Custom assertions
+- Chained request sequences
+
+### SDK Generation
+Auto-generate client libraries from specs:
+- TypeScript SDK
+- Python SDK
+- Java SDK
+
+### Compliance Mode
+Enterprise features for regulated industries:
+- Audit logging
+- Data retention policies
+- SOC 2 controls
+- SSO/SAML
+
+---
+
+## File Reference
+
+### Project-Centric Routes
 ```
 apps/web/app/(portal)/projects/[id]/
-├── layout.tsx              # Tabbed navigation layout
+├── layout.tsx              # Tabbed navigation
 ├── page.tsx                # Overview tab
-├── specs/page.tsx          # Specs tab
-├── mocks/page.tsx          # Mocks tab
-├── tests/page.tsx          # Tests tab
-├── traces/page.tsx         # Traces tab
-├── plan/page.tsx           # Plan tab
+├── specs/page.tsx          
+├── mocks/page.tsx          
+├── tests/page.tsx          
+├── traces/page.tsx         
+├── plan/page.tsx           
 └── reports/
-    ├── page.tsx            # Reports list tab
-    └── [reportId]/page.tsx # Report detail
+    ├── page.tsx            
+    └── [reportId]/page.tsx 
 ```
 
-### Deprecated Routes (Deleted)
+### Partner Portal Routes
+```
+apps/web/app/partner/
+├── layout.tsx
+├── login/page.tsx
+├── page.tsx                # Dashboard
+├── specs/page.tsx
+├── mocks/page.tsx
+├── tests/page.tsx
+├── traces/page.tsx
+├── plan/page.tsx
+└── playground/page.tsx     # NEW - to be created
+```
 
-The following top-level routes have been removed in favor of project-scoped routes:
-- `apps/web/app/(portal)/specs/page.tsx`
-- `apps/web/app/(portal)/mocks/page.tsx`
-- `apps/web/app/(portal)/tests/page.tsx`
-- `apps/web/app/(portal)/traces/page.tsx`
-- `apps/web/app/(portal)/plan/page.tsx`
-- `apps/web/app/(portal)/reports/*`
-- `apps/web/app/(portal)/dashboard/page.tsx`
+### Key Backend Files
+```
+packages/
+├── spec-engine/src/
+│   ├── normalizer.ts       # Add capability detection
+│   └── blueprint.ts        # Add annotation support
+├── testkit/src/
+│   └── runner.ts           # Add environment + profile support
+├── orchestrator/src/
+│   └── reports.ts          # Add profile-aware reporting
+└── connectors/src/
+    ├── slack.ts            # Wire to events
+    └── jira.ts             # Wire to events
+```

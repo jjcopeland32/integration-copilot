@@ -65,6 +65,7 @@ model Project {
   specs       Spec[]
   blueprints  Blueprint[]
   mocks       MockInstance[]
+  environments Environment[]
   suites      TestSuite[]
   traces      Trace[]
   planItems   PlanItem[]
@@ -93,12 +94,33 @@ model Spec {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   blueprints Blueprint[]
+  testProfile TestProfile?
 }
 
 enum SpecKind {
   OPENAPI
   ASYNCAPI
   JSON_SCHEMA
+}
+
+enum TestCategoryStatus {
+  REQUIRED   // Must pass for integration to be approved
+  OPTIONAL   // Failures are warnings, not blockers
+  NA         // Not applicable for this API
+  AUTO       // Automatically determine based on detected capabilities
+}
+
+model TestProfile {
+  id                   String   @id @default(cuid())
+  spec                 Spec     @relation(fields: [specId], references: [id], onDelete: Cascade)
+  specId               String   @unique
+  apiGroup             String   // e.g., "payments", "accounts", derived from spec paths
+  categorySettings     Json     // Map of category ID to TestCategoryStatus
+  detectedCapabilities Json     // Auto-detected capabilities from spec
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([specId])
 }
 
 model Blueprint {
@@ -133,6 +155,39 @@ model MockInstance {
 enum MockStatus {
   RUNNING
   STOPPED
+}
+
+enum EnvironmentType {
+  MOCK
+  SANDBOX
+  UAT
+  PRODUCTION
+}
+
+enum AuthType {
+  NONE
+  API_KEY
+  OAUTH2
+  BASIC
+}
+
+model Environment {
+  id          String          @id @default(cuid())
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+  name        String
+  type        EnvironmentType
+  baseUrl     String?
+  authType    AuthType        @default(NONE)
+  credentials Json?           // Encrypted credentials (API key, OAuth config, etc.)
+  headers     Json?           // Additional headers to include in requests
+  isDefault   Boolean         @default(false)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([projectId])
+  @@index([projectId, isDefault])
 }
 
 model TestSuite {

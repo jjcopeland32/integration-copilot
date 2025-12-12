@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { FlaskConical, Download, Play, Loader2, CheckCircle, XCircle, ChevronDown, ChevronUp, AlertTriangle, Clock, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/utils';
+import { PartnerEnvironmentSelector } from '@/components/environments/partner-environment-selector';
 
 type AssertionResult = {
   passed: boolean;
@@ -189,6 +190,7 @@ export function PartnerTestsPanel() {
   const [runningSuite, setRunningSuite] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedEnvId, setSelectedEnvId] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -244,6 +246,19 @@ export function PartnerTestsPanel() {
         <p className="text-sm text-slate-400 mt-1">
           These cases validate required behaviors and failure handling per the integration blueprint.
         </p>
+      </div>
+
+      {/* Environment Selector */}
+      <div className="animate-in" style={{ animationDelay: '50ms' }}>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-slate-400">Test against:</span>
+          <PartnerEnvironmentSelector
+            value={selectedEnvId}
+            onChange={(id) => setSelectedEnvId(id)}
+            showMockOption={true}
+            className="flex-1 max-w-md"
+          />
+        </div>
       </div>
 
       {/* Status Messages */}

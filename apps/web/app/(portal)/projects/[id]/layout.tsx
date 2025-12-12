@@ -17,12 +17,14 @@ import {
   FileText,
   ArrowLeft,
   Loader2,
+  Globe,
 } from 'lucide-react';
 
 const tabs = [
   { name: 'Overview', href: '', icon: LayoutDashboard },
   { name: 'Specs', href: '/specs', icon: FileCode2 },
   { name: 'Mocks', href: '/mocks', icon: Server },
+  { name: 'Environments', href: '/environments', icon: Globe },
   { name: 'Tests', href: '/tests', icon: TestTube },
   { name: 'Traces', href: '/traces', icon: Activity },
   { name: 'Plan', href: '/plan', icon: ClipboardCheck },

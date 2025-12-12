@@ -18,6 +18,8 @@ import {
   Download,
   Eye,
   FileText,
+  CalendarClock,
+  ShieldCheck,
 } from 'lucide-react';
 
 type ActionKind = 'blueprint' | 'mock' | 'tests' | 'import';
@@ -174,14 +176,19 @@ function SpecCard({
   const created = useMemo(() => new Date(spec.createdAt).toLocaleString(), [spec.createdAt]);
 
   return (
-    <Card className="group card-hover bg-white/90 backdrop-blur">
+    <Card className="group card-hover relative overflow-hidden border border-slate-100/80 bg-white/90 backdrop-blur shadow-lg">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(99,102,241,0.08),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(56,189,248,0.08),transparent_25%)] opacity-80" />
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-400" />
       <CardHeader className="space-y-2">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-400">
+              Spec asset
+            </p>
             <CardTitle className="text-xl text-gray-900">{spec.name}</CardTitle>
             <p className="text-xs text-gray-500">Version {spec.version}</p>
           </div>
-          <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 p-3 text-white shadow-lg">
+          <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 p-3 text-white shadow-lg shadow-blue-500/20">
             <FileCode2 className="h-5 w-5" />
           </div>
         </div>
@@ -196,11 +203,33 @@ function SpecCard({
           <span>Imported {created}</span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex gap-3">
+      <CardContent className="relative space-y-4">
+        <div className="rounded-2xl border border-slate-100/80 bg-slate-50/80 p-3 text-xs text-slate-600 shadow-inner">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-indigo-500" />
+              <span className="font-medium">Normalized & synced</span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-indigo-700">
+              {hasBlueprint ? (
+                <>
+                  <ShieldCheck className="h-4 w-4" />
+                  Blueprint available
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Ready to generate
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-3">
           <Button
             size="sm"
-            className="flex-1 gap-1"
+            className="w-full justify-center gap-1"
             disabled={loadingAction === 'blueprint'}
             onClick={() => onAction('blueprint', spec.id)}
           >
@@ -214,7 +243,7 @@ function SpecCard({
           <Button
             size="sm"
             variant="outline"
-            className="flex-1 gap-1"
+            className="w-full justify-center gap-1"
             disabled={loadingAction === 'mock'}
             onClick={() => onAction('mock', spec.id)}
           >
@@ -228,7 +257,7 @@ function SpecCard({
           <Button
             size="sm"
             variant="outline"
-            className="flex-1 gap-1"
+            className="w-full justify-center gap-1"
             disabled={loadingAction === 'tests'}
             onClick={() => onAction('tests', spec.id)}
           >
@@ -488,4 +517,3 @@ export default function ProjectSpecsPage() {
     </>
   );
 }
-

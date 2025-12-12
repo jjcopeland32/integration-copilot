@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TestTube, Play, CheckCircle, XCircle, Loader2, Download, Link as LinkIcon, FileText, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { trpc } from '@/lib/trpc/client';
+import { EnvironmentSelector } from '@/components/environments/environment-selector';
 
 type AssertionResult = {
   passed: boolean;
@@ -194,6 +195,7 @@ export default function ProjectTestsPage() {
 
   const [runningSuite, setRunningSuite] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedEnvId, setSelectedEnvId] = useState<string | null>(null);
 
   const handleRunSuite = async (suiteId: string) => {
     setRunningSuite(suiteId);
@@ -259,6 +261,20 @@ export default function ProjectTestsPage() {
           {runningSuite ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-5 w-5" />}
           Run All Tests
         </Button>
+      </div>
+
+      {/* Environment Selector */}
+      <div className="animate-in" style={{ animationDelay: '50ms' }}>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-600">Test against:</span>
+          <EnvironmentSelector
+            projectId={projectId}
+            value={selectedEnvId}
+            onChange={(id) => setSelectedEnvId(id)}
+            showMockOption={true}
+            className="flex-1 max-w-md"
+          />
+        </div>
       </div>
 
       {error && (

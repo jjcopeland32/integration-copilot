@@ -63,6 +63,18 @@ export const reportRouter = router({
         });
       }
 
+      // Refresh metrics so recent test runs/traces are reflected in the list view
+      const refreshedReports = await Promise.all(
+        reports.map(async (report) => {
+          const readiness = await generator.generateReadinessReport(input.projectId);
+          const updated = await ctx.prisma.report.update({
+            where: { id: report.id },
+            data: { meta: readiness as Prisma.InputJsonValue },
+          });
+          return { ...updated, meta: readiness };
+        })
+      );
+
       const phaseSummariesBase = PLAN_PHASES.map((phase) => {
         const settings = phaseConfig[phase.key];
         return {
@@ -76,7 +88,7 @@ export const reportRouter = router({
         };
       });
 
-      return reports.map((report) => {
+      return refreshedReports.map((report) => {
         const meta = parseMeta(report.meta);
         const metrics = meta?.metrics;
         const testsPassed = metrics?.passedTests ?? 0;
