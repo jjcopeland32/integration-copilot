@@ -1,7 +1,7 @@
 import { router, protectedProcedure } from '../server';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { encryptCredentials, decryptCredentials } from '@/lib/encryption';
 
 // Credential schemas for different auth types
@@ -265,8 +265,8 @@ export const environmentRouter = router({
           type: input.type,
           baseUrl: input.baseUrl,
           authType: input.authType,
-          credentials: encryptedCredentials,
-          headers: input.headers ?? null,
+          credentials: encryptedCredentials ?? Prisma.DbNull,
+          headers: input.headers ?? Prisma.DbNull,
           isDefault: input.isDefault,
           isActive: input.isActive,
         },
@@ -331,7 +331,9 @@ export const environmentRouter = router({
         where: { id },
         data: {
           ...updates,
-          ...(encryptedCredentials !== undefined && { credentials: encryptedCredentials }),
+          ...(encryptedCredentials !== undefined && { 
+            credentials: encryptedCredentials ?? Prisma.DbNull 
+          }),
         },
       });
 
