@@ -69,7 +69,7 @@ export const reportRouter = router({
           const readiness = await generator.generateReadinessReport(input.projectId);
           const updated = await ctx.prisma.report.update({
             where: { id: report.id },
-            data: { meta: readiness as Prisma.InputJsonValue },
+            data: { meta: readiness as unknown as Prisma.InputJsonValue },
           });
           return { ...updated, meta: readiness };
         })
