@@ -196,15 +196,38 @@ export default function ProjectTestsPage() {
   const [runningSuite, setRunningSuite] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedEnvId, setSelectedEnvId] = useState<string | null>(null);
+  const [selectedEnvType, setSelectedEnvType] = useState<string | null>(null);
+
+  // Map environment type to API envKey
+  const getEnvKeyFromType = (envId: string | null, envType: string | null): 'MOCK' | 'SANDBOX' | 'PROD' => {
+    // If 'mock' is selected or no selection, use MOCK
+    if (!envId || envId === 'mock') {
+      return 'MOCK';
+    }
+    
+    // Map environment types to API envKey values
+    switch (envType) {
+      case 'MOCK':
+        return 'MOCK';
+      case 'SANDBOX':
+      case 'UAT': // UAT tests against sandbox-like environments
+        return 'SANDBOX';
+      case 'PRODUCTION':
+        return 'PROD';
+      default:
+        return 'MOCK';
+    }
+  };
 
   const handleRunSuite = async (suiteId: string) => {
     setRunningSuite(suiteId);
     setError(null);
+    const envKey = getEnvKeyFromType(selectedEnvId, selectedEnvType);
     try {
       const res = await fetch('/api/tests/run', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ suiteId }),
+        body: JSON.stringify({ suiteId, envKey }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -270,7 +293,10 @@ export default function ProjectTestsPage() {
           <EnvironmentSelector
             projectId={projectId}
             value={selectedEnvId}
-            onChange={(id) => setSelectedEnvId(id)}
+            onChange={(id, env) => {
+              setSelectedEnvId(id);
+              setSelectedEnvType(env?.type ?? null);
+            }}
             showMockOption={true}
             className="flex-1 max-w-md"
           />

@@ -103,9 +103,11 @@ export default function EnvironmentsPage() {
       });
       setTestingConnectionId(null);
     },
-    onError: (error) => {
+    onError: (error, variables) => {
+      // Use variables.id instead of testingConnectionId state to handle
+      // concurrent connection tests (state may have changed by the time this fires)
       setConnectionResult({
-        id: testingConnectionId!,
+        id: variables.id,
         success: false,
         message: error.message,
       });
